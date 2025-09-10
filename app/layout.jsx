@@ -1,6 +1,6 @@
 export const metadata = {
   title: 'BabyDooDoo — Minimal Smoke Test',
-  description: 'Auth + Baby + DooDoo with RLS policies.',
+  description: 'Log in with magic link, create a baby, and log a DooDoo event.',
 };
 
 export default function RootLayout({ children }) {
@@ -9,11 +9,11 @@ export default function RootLayout({ children }) {
       <body style={{ fontFamily: 'system-ui, sans-serif', background: '#fffaf0', color: '#222' }}>
         <div style={{ maxWidth: 720, margin: '0 auto', padding: 24 }}>
           <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <div style={{ fontSize: 28 }}>🍼💩 <strong>BabyDooDoo</strong> <small style={{ marginLeft: 8, fontSize: 14, opacity: 0.7 }}>infra step</small></div>
+            <div style={{ fontSize: 28 }}>🍼💩 <strong>BabyDooDoo</strong> <small style={{ marginLeft: 8, fontSize: 14, opacity: 0.7 }}>smoke test</small></div>
           </header>
           <main>{children}</main>
           <footer style={{ marginTop: 48, fontSize: 12, opacity: 0.7 }}>
-            <p>Local testing build. Do not use in production.</p>
+            <p>For local testing only. Do not use in production.</p>
           </footer>
         </div>
       </body>

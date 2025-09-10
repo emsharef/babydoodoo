@@ -1,4 +1,5 @@
 'use client';
+
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -10,12 +11,15 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const next = searchParams.get('next') || '/';
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) {
         setStatus('Signed in! Redirecting...');
         router.replace(next);
       }
     });
+
+    // In case the session is already set by detectSessionInUrl:
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setStatus('Signed in! Redirecting...');
@@ -24,7 +28,10 @@ export default function AuthCallbackPage() {
         setStatus('Waiting for session...');
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [router, searchParams]);
 
   return (

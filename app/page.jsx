@@ -1,10 +1,12 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 
-function Button({ children, onClick, style }) {
+import { useEffect, useMemo, useState } from 'react';
+import { supabase } from '../lib/supabaseClient';
+
+function Button({ children, onClick, style, type = 'button' }) {
   return (
     <button
+      type={type}
       onClick={onClick}
       style={{
         padding: '14px 18px',
@@ -33,38 +35,69 @@ export default function HomePage() {
   const [events, setEvents] = useState([]);
   const redirectPath = process.env.NEXT_PUBLIC_AUTH_REDIRECT_PATH || '/auth/callback';
 
+  // Load current user & babies on mount
   useEffect(() => {
     let mounted = true;
+
     async function init() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!mounted) return;
       setUser(user);
-      if (user) await fetchBabies(user.id);
+
+      if (user) {
+        await fetchBabies(user.id);
+      }
     }
+
+    // Listen to auth changes
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
-      if (session?.user) fetchBabies(session.user.id);
-      else { setBabies([]); setEvents([]); }
+      if (session?.user) {
+        fetchBabies(session.user.id);
+      } else {
+        setBabies([]);
+        setEvents([]);
+      }
     });
+
     init();
-    return () => { mounted = false; authListener.subscription.unsubscribe(); };
+    return () => {
+      mounted = false;
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
 
   async function fetchBabies(userId) {
-    const { data, error } = await supabase.from('babies').select('*').eq('user_id', userId).order('created_at', { ascending: false });
-    if (error) { console.error('fetchBabies error', error); return; }
+    const { data, error } = await supabase
+      .from('babies')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      console.error('fetchBabies error', error);
+      return;
+    }
     setBabies(data || []);
     if (data && data.length > 0) {
-      setSelectedBabyId(prev => prev || data[0].id);
-      fetchEvents(data[0].id);
+      const id = selectedBabyId || data[0].id;
+      setSelectedBabyId(id);
+      fetchEvents(id);
     }
   }
 
   async function fetchEvents(babyId) {
-    const { data, error } = await supabase.from('events').select('*').eq('baby_id', babyId).order('occurred_at', { ascending: false }).limit(10);
-    if (error) { console.error('fetchEvents error', error); return; }
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('baby_id', babyId)
+      .order('occurred_at', { ascending: false })
+      .limit(10);
+    if (error) {
+      console.error('fetchEvents error', error);
+      return;
+    }
     setEvents(data || []);
   }
 
@@ -72,10 +105,15 @@ export default function HomePage() {
     e.preventDefault();
     setSending(true);
     try {
-      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : redirectPath;
+      const redirectTo = typeof window !== 'undefined'
+        ? `${window.location.origin}${redirectPath}`
+        : redirectPath;
       const { error } = await supabase.auth.signInWithOtp({
         email,
-        options: { emailRedirectTo: redirectTo, shouldCreateUser: true },
+        options: {
+          emailRedirectTo: redirectTo,
+          shouldCreateUser: true,
+        },
       });
       if (error) throw error;
       alert('Magic link sent! Check your email.');
@@ -91,36 +129,73 @@ export default function HomePage() {
     await supabase.auth.signOut();
   }
 
+  // ----- Server-API-backed writes (Step 2) -----
   async function createBaby() {
     if (!user) return alert('Please sign in first.');
     if (!babyName.trim()) return alert('Enter a baby name.');
-    const { data, error } = await supabase.from('babies').insert([{ name: babyName.trim(), user_id: user.id }]).select('*').single();
-    if (error) { console.error(error); alert('Failed to create baby.'); return; }
-    setBabies(prev => [data, ...prev]);
-    setSelectedBabyId(data.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return alert('Missing session token.');
+
+    const res = await fetch('/api/babies', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${token}` },
+      body: JSON.stringify({ name: babyName.trim() }),
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      console.error(payload);
+      alert('Failed to create baby.');
+      return;
+    }
+    const { baby } = await res.json();
+    setBabies(prev => [baby, ...prev]);
+    setSelectedBabyId(baby.id);
     setBabyName('');
-    fetchEvents(data.id);
+    fetchEvents(baby.id);
   }
 
   async function logDooDoo() {
     if (!user) return alert('Please sign in first.');
     if (!selectedBaby) return alert('Please select or create a baby first.');
-    const { data, error } = await supabase.from('events').insert([{
-      baby_id: selectedBaby.id,
-      user_id: user.id,
-      event_type: 'DooDoo',
-      meta: {},
-    }]).select('*').single();
-    if (error) { console.error(error); alert('Failed to log event.'); return; }
-    setEvents(prev => [data, ...prev].slice(0, 10));
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return alert('Missing session token.');
+
+    const res = await fetch('/api/events', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'authorization': `Bearer ${token}` },
+      body: JSON.stringify({ baby_id: selectedBaby.id, event_type: 'DooDoo' }),
+    });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      console.error(payload);
+      alert('Failed to log event.');
+      return;
+    }
+    const { event } = await res.json();
+    setEvents(prev => [event, ...prev].slice(0, 10));
   }
 
   async function deleteEvent(id) {
     if (!user) return alert('Please sign in first.');
-    const { error } = await supabase.from('events').delete().eq('id', id);
-    if (error) { console.error(error); alert('Failed to delete event.'); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return alert('Missing session token.');
+
+    const res = await fetch(`/api/events/${id}`, {
+      method: 'DELETE',
+      headers: { 'authorization': `Bearer ${token}` },
+    });
+    if (!res.ok && res.status !== 204) {
+      const payload = await res.json().catch(() => ({}));
+      console.error(payload);
+      alert('Failed to delete event.');
+      return;
+    }
     setEvents(prev => prev.filter(e => e.id !== id));
   }
+  // --------------------------------------------
 
   if (!user) {
     return (
@@ -136,7 +211,7 @@ export default function HomePage() {
             onChange={(e) => setEmail(e.target.value)}
             style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', minWidth: 260 }}
           />
-          <Button onClick={sendMagicLink} style={{ background: '#c7f0d8', borderColor: '#73c69c' }}>
+          <Button type="submit" onClick={sendMagicLink} style={{ background: '#c7f0d8', borderColor: '#73c69c' }}>
             {sending ? 'Sending...' : 'Send magic link'}
           </Button>
         </form>
