@@ -1,20 +1,16 @@
-export const metadata = {
-  title: 'BabyDooDoo — Minimal Smoke Test',
-  description: 'Log in with magic link, create a baby, and log a DooDoo event.',
-};
+export const metadata = { title: 'BabyDooDoo (Minimal)', description: 'Tiny smoke test with sharing' };
 
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: 'system-ui, sans-serif', background: '#fffaf0', color: '#222' }}>
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: 24 }}>
-          <header style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-            <div style={{ fontSize: 28 }}>🍼💩 <strong>BabyDooDoo</strong> <small style={{ marginLeft: 8, fontSize: 14, opacity: 0.7 }}>smoke test</small></div>
+      <body style={{ fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif', background: '#f7f7fb', color: '#222' }}>
+        <div style={{ maxWidth: 860, margin: '24px auto', padding: '0 16px', display: 'grid', gap: 16 }}>
+          <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h1 style={{ margin: 0, fontSize: 22 }}>🍼 BabyDooDoo</h1>
+            <small style={{ opacity: 0.6 }}>minimal</small>
           </header>
-          <main>{children}</main>
-          <footer style={{ marginTop: 48, fontSize: 12, opacity: 0.7 }}>
-            <p>For local testing only. Do not use in production.</p>
-          </footer>
+          <main style={{ display: 'grid', gap: 16 }}>{children}</main>
+          <footer style={{ opacity: 0.6, fontSize: 12 }}>Built for local testing • RLS + RPC</footer>
         </div>
       </body>
     </html>
