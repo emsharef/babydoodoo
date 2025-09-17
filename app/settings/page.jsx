@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
+import { useBaby } from '@/components/BabyContext';
 
 function Button({ children, onClick, style, type }) {
   return (
@@ -15,6 +16,7 @@ export default function SettingsPage() {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [babyName, setBabyName] = useState('');
+  const { selectBaby, refreshBabies } = useBaby();
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -30,9 +32,9 @@ export default function SettingsPage() {
     const res = await fetch('/api/babies', { method: 'POST', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify({ name: babyName.trim() }) });
     if (!res.ok) { console.error('createBaby error', await res.json().catch(()=>({}))); alert('Failed to create baby.'); return; }
     const { baby } = await res.json();
-    try { localStorage.setItem('bd_selected_baby', baby.id); } catch {}
     setBabyName('');
-    // Go to Log page so user can start logging
+    await refreshBabies();
+    selectBaby(baby.id);
     router.replace('/');
   }
 

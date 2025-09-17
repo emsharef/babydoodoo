@@ -1,6 +1,8 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
+import { useBaby } from '@/components/BabyContext';
+import BottomSheet from '@/components/BottomSheet';
 
 function Button({ children, onClick, style, type }) {
   return (
@@ -10,45 +12,24 @@ function Button({ children, onClick, style, type }) {
   );
 }
 
-const KEY = 'bd_selected_baby';
-
 export default function LogPage() {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
-  const [user, setUser] = useState(null);
-  const [babies, setBabies] = useState([]);
-  const [selectedBabyId, setSelectedBabyId] = useState('');
+  const { user, babies, selectedBabyId, refreshBabies } = useBaby();
   const [events, setEvents] = useState([]);
+
+  // Bottom sheet state
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState(null); // { id, event_type, meta }
+  const [doo, setDoo] = useState({ consistency:'normal', color:'yellow', notes:'' });
+
   const redirectPath = process.env.NEXT_PUBLIC_AUTH_REDIRECT_PATH || '/auth/callback';
 
-  useEffect(() => {
-    let mounted = true;
-    async function init() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!mounted) return;
-      setUser(user);
-      if (user) { await fetchBabies(); }
-    }
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) { fetchBabies(); }
-      else { setBabies([]); setEvents([]); }
-    });
-    init();
-    return () => { mounted = false; authListener.subscription.unsubscribe(); };
-  }, []);
+  useEffect(() => { if (user) refreshBabies(); }, [user, refreshBabies]);
 
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
 
-  async function fetchBabies() {
-    const { data, error } = await supabase.from('babies').select('*').order('created_at', { ascending:false });
-    if (error) { console.error('fetchBabies error', error); return; }
-    setBabies(data||[]);
-    let saved = ''; try { saved = localStorage.getItem(KEY) || ''; } catch {}
-    const current = saved && (data||[]).some(b => b.id===saved) ? saved : (data&&data[0]?.id) || '';
-    setSelectedBabyId(current);
-    if (current) { fetchEvents(current); }
-  }
+  useEffect(() => { if (selectedBaby) fetchEvents(selectedBaby.id); else setEvents([]); }, [selectedBabyId]);
 
   async function fetchEvents(babyId) {
     const { data, error } = await supabase.from('events').select('*').eq('baby_id', babyId).order('occurred_at', { ascending:false }).limit(10);
@@ -66,6 +47,11 @@ export default function LogPage() {
     if (!res.ok) { console.error('logDooDoo error', await res.json().catch(()=>({}))); alert('Failed to log event.'); return; }
     const { event } = await res.json();
     setEvents(prev => [event, ...prev].slice(0,10));
+
+    // Open tiny bottom sheet. Auto-hide after 1s unless the user interacts.
+    setEditingEvent(event);
+    setDoo({ consistency:'normal', color:'yellow', notes:'' });
+    setSheetOpen(true);
   }
 
   async function deleteEvent(id) {
@@ -74,12 +60,18 @@ export default function LogPage() {
     const res = await fetch(`/api/events/${id}`, { method:'DELETE', headers: { authorization:`Bearer ${token}` } });
     if (!res.ok && res.status!==204) { console.error('deleteEvent error', await res.json().catch(()=>({}))); alert('Failed to delete event.'); return; }
     setEvents(prev => prev.filter(e => e.id !== id));
+    if (editingEvent?.id === id) { setSheetOpen(false); setEditingEvent(null); }
   }
 
-  function onSelectBaby(id) {
-    setSelectedBabyId(id);
-    try { localStorage.setItem(KEY, id); } catch {}
-    if (id) fetchEvents(id);
+  async function saveDooMeta() {
+    if (!editingEvent) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token; if (!token) return alert('Missing session token.');
+    const res = await fetch(`/api/events/${editingEvent.id}`, { method:'PATCH', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify({ meta: { doo } }) });
+    if (!res.ok) { console.error('updateEvent error', await res.json().catch(()=>({}))); alert('Failed to save.'); return; }
+    const { event } = await res.json();
+    setEvents(prev => prev.map(e => e.id === event.id ? event : e));
+    setSheetOpen(false); setEditingEvent(null);
   }
 
   async function sendMagicLink(e) {
@@ -111,14 +103,9 @@ export default function LogPage() {
     <div style={{ display:'grid', gap:16 }}>
       <section style={{ padding: 16, border:'1px solid #eee', borderRadius:12, background:'#fff', display:'grid', gap:12 }}>
         <h2 style={{ marginTop:0 }}>Log events</h2>
+        {!selectedBaby && <p style={{ color:'#888' }}>No baby selected. Choose one in the top bar, or create one in Settings.</p>}
         <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-          <label htmlFor="babySelect"><strong>Baby:</strong></label>
-          <select id="babySelect" value={selectedBabyId} onChange={(e)=>onSelectBaby(e.target.value)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid #ccc' }}>
-            <option value="" disabled>Select...</option>
-            {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-          </select>
           <Button onClick={logDooDoo} style={{ background:'#fff3b0', border:'1px solid #f0d264' }}>Log “DooDoo” 💩</Button>
-          {!selectedBaby && <small style={{ color:'#888' }}>No baby selected. Create one in Settings.</small>}
         </div>
         <div>
           <h3 style={{ margin:'12px 0 6px' }}>Recent events</h3>
@@ -134,6 +121,43 @@ export default function LogPage() {
           )}
         </div>
       </section>
+
+      <BottomSheet open={sheetOpen} onClose={()=>{ setSheetOpen(false); setEditingEvent(null); }}>
+        <div style={{ display:'grid', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+            <strong>Add details</strong>
+          </div>
+          <div style={{ display:'grid', gap:8 }}>
+            <label style={lbl}>Consistency
+              <select value={doo.consistency} onChange={(e)=>setDoo(prev=>({ ...prev, consistency:e.target.value }))} style={inp}>
+                <option value="runny">Runny</option>
+                <option value="normal">Normal</option>
+                <option value="firm">Firm</option>
+              </select>
+            </label>
+            <label style={lbl}>Color
+              <select value={doo.color} onChange={(e)=>setDoo(prev=>({ ...prev, color:e.target.value }))} style={inp}>
+                <option value="yellow">Yellow</option>
+                <option value="green">Green</option>
+                <option value="brown">Brown</option>
+              </select>
+            </label>
+            <label style={lbl}>Notes
+              <input value={doo.notes} onChange={(e)=>setDoo(prev=>({ ...prev, notes:e.target.value }))} placeholder="Optional note..." style={inp} />
+            </label>
+          </div>
+          <div style={{ display:'flex', justifyContent:'space-between', gap:8 }}>
+            <button onClick={()=>editingEvent && deleteEvent(editingEvent.id)} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #ff9c9c', background:'#ffd4d4', fontWeight:600 }}>Undo</button>
+            <div style={{ display:'flex', gap:8 }}>
+              <button onClick={()=>{ setSheetOpen(false); setEditingEvent(null); }} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #e5e5e5', background:'#fff' }}>Dismiss</button>
+              <button onClick={saveDooMeta} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #73c69c', background:'#c7f0d8', fontWeight:600 }}>Save</button>
+            </div>
+          </div>
+        </div>
+      </BottomSheet>
     </div>
   );
 }
+
+const lbl = { display:'grid', gap:6, fontSize:14 };
+const inp = { padding:'10px 12px', borderRadius:10, border:'1px solid #ccc' };
