@@ -30,9 +30,7 @@ export async function POST(request) {
   const __rl = limit({ key: __key, windowMs: Number(process.env.RATE_WINDOW_MS)||60000, max: Number(process.env.RATE_MAX_WRITES_PER_USER)||60 });
   if (!__rl.ok) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events', method: 'POST', status: 429, ms: __ms, userId: user.id, ip: __ip });
-    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: {
-      'Retry-After': String(Math.ceil((__rl.reset-Date.now())/1000)), 'X-RateLimit-Limit': String(__rl.limit), 'X-RateLimit-Remaining': String(__rl.remaining),
-      'X-RateLimit-Reset': String(Math.floor(__rl.reset/1000)), 'X-Request-Id': __id, 'content-type': 'application/json' } });
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { 'content-type': 'application/json' } });
   }
   const insertObj = { baby_id: parsed.data.baby_id, user_id: user.id, event_type: parsed.data.event_type };
   if (parsed.data.occurred_at) insertObj.occurred_at = parsed.data.occurred_at;

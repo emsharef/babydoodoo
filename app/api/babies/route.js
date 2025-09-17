@@ -28,16 +28,12 @@ export async function POST(request) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/babies', method: 'POST', status: 429, ms: __ms, userId: user.id, ip: __ip });
     return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { 'content-type': 'application/json' } });
   }
-
-  // Prefer SECURITY DEFINER RPC to avoid RLS friction on inserts
   const { data, error } = await supabase.rpc('create_baby', { p_name: parsed.data.name });
   if (error) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/babies', method: 'POST', status: 400, ms: __ms, userId: user.id, ip: __ip });
     return new Response(JSON.stringify({ error: error.message, code: error.code, details: error.details }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
-
-  // Ensure we return a plain object { baby }
   const baby = Array.isArray(data) ? data[0] : data;
   const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/babies', method: 'POST', status: 201, ms: __ms, userId: user.id, ip: __ip });
-  return new Response(JSON.stringify({ baby }), { status: 201, headers: { 'content-type': 'application/json', 'X-Request-Id': __id } });
+  return new Response(JSON.stringify({ baby }), { status: 201, headers: { 'content-type':'application/json', 'X-Request-Id': __id } });
 }
