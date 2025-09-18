@@ -30,4 +30,4 @@ export default function NavBar() {
     </nav>
   );
 }
-const linkStyle = { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e5e5', background: '#fafafa', textDecoration: 'none', color: '#222', fontWeight: 600 };
+const linkStyle = { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e5e5', background: '#fafafa', textDecoration: 'none', color: '#222', fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif' };
