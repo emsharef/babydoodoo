@@ -5,21 +5,44 @@ import { useBaby } from '@/components/BabyContext';
 import BottomSheet from '@/components/BottomSheet';
 import IconButton from '@/components/IconButton';
 
+// Sensible default order, starting with DooDoo
 const EVENT_DEFS = [
+  // Diapering & potty
   { type:'DooDoo', emoji:'💩', label:'DooDoo', bg:'#fff3b0', bd:'#f0d264' },
   { type:'PeePee', emoji:'💧', label:'PeePee', bg:'#d6f0ff', bd:'#96c8ee' },
+  { type:'Diaper', emoji:'🧷', label:'Diaper', bg:'#f7f7f7', bd:'#dedede' },
+
+  // Feeding
   { type:'YumYum', emoji:'🍼', label:'YumYum', bg:'#dff7d9', bd:'#9ed69b' },
-  { type:'KickMe', emoji:'🦶', label:'KickMe', bg:'#efe0ff', bd:'#c7a7ff' },
-  { type:'Contraction', emoji:'⏱️', label:'Contraction', bg:'#ffe0e0', bd:'#ffb3b3' },
-  { type:'MyMood', emoji:'🙂', label:'MyMood', bg:'#ffdff1', bd:'#f4a6dc' },
-  { type:'BabyMood', emoji:'👶', label:'BabyMood', bg:'#f1e0ff', bd:'#c9a5ff' },
+
+  // Sleep
   { type:'SleepStart', emoji:'🛌', label:'SleepStart', bg:'#e8f4ff', bd:'#a9c9ff' },
   { type:'SleepEnd', emoji:'🌞', label:'SleepEnd', bg:'#fff1e0', bd:'#ffd0a1' },
+
+  // Health
+  { type:'Puke', emoji:'🤮', label:'Puke', bg:'#e8ffd8', bd:'#b7e69a' },
+  { type:'Sick', emoji:'🤒', label:'Sick', bg:'#ffe9cc', bd:'#ffc27a' },
+  { type:'Temperature', emoji:'🌡️', label:'Temperature', bg:'#fdebd3', bd:'#fdc889' },
+  { type:'Medicine', emoji:'💊', label:'Medicine', bg:'#ffeaf0', bd:'#ffb5c9' },
+  { type:'Doctor', emoji:'🩺', label:'Doctor', bg:'#eef6ff', bd:'#c7ddff' },
+
+  // Mood & play
+  { type:'BabyMood', emoji:'👶', label:'BabyMood', bg:'#f1e0ff', bd:'#c9a5ff' },
+  { type:'MyMood', emoji:'🙂', label:'MyMood', bg:'#ffdff1', bd:'#f4a6dc' },
+  { type:'Play', emoji:'🧸', label:'Play', bg:'#f0fff0', bd:'#cfe9cf' },
+
+  // Milestones / notes
+  { type:'Milestone', emoji:'⭐', label:'Milestone', bg:'#fff7d6', bd:'#f3da83' },
+  { type:'Note', emoji:'📝', label:'Note', bg:'#f5f5f7', bd:'#e8e8ee' },
+
+  // Pregnancy
+  { type:'KickMe', emoji:'🦶', label:'KickMe', bg:'#efe0ff', bd:'#c7a7ff' },
+  { type:'Contraction', emoji:'⏱️', label:'Contraction', bg:'#ffe0e0', bd:'#ffb3b3' },
+  { type:'Heartbeat', emoji:'❤️', label:'Heartbeat', bg:'#ffe2ea', bd:'#f3b3c2' },
+
+  // Misc
   { type:'CryCry', emoji:'😭', label:'CryCry', bg:'#ffe3f0', bd:'#ffb3d0' },
   { type:'BlahBlah', emoji:'🗣️', label:'BlahBlah', bg:'#eaf7ff', bd:'#b9e2ff' },
-  { type:'Sick', emoji:'🤒', label:'Sick', bg:'#ffe9cc', bd:'#ffc27a' },
-  { type:'Puke', emoji:'🤮', label:'Puke', bg:'#e8ffd8', bd:'#b7e69a' },
-  { type:'Temperature', emoji:'🌡️', label:'Temperature', bg:'#fdebd3', bd:'#fdc889' },
   { type:'Measure', emoji:'📏', label:'Measure', bg:'#f6f1ff', bd:'#d4c6ff' },
 ];
 
@@ -57,6 +80,35 @@ const MEASURE_KINDS = [
   { k:'mom_waist', label:'Mom Waist' },
 ];
 
+const MED_UNITS = ['mg','ml','drops'];
+const MED_ROUTES = [
+  { k:'PO', label:'Oral' },
+  { k:'Topical', label:'Topical' },
+  { k:'Other', label:'Other' },
+];
+
+const DOCTOR_KINDS = [
+  { k:'pediatrician', label:'Pediatrician' },
+  { k:'obgyn', label:'OB‑GYN' },
+  { k:'family', label:'Family/GP' },
+  { k:'urgent', label:'Urgent Care' },
+];
+
+const PLAY_KINDS = [
+  { k:'tummy', label:'Tummy Time', emoji:'🤸' },
+  { k:'reading', label:'Reading', emoji:'📚' },
+  { k:'walk', label:'Walk', emoji:'🚶' },
+  { k:'music', label:'Music', emoji:'🎶' },
+  { k:'bath', label:'Bath', emoji:'🛁' },
+];
+
+const MILE_KINDS = [
+  { k:'first', label:'Firsts' },
+  { k:'motor', label:'Motor' },
+  { k:'social', label:'Social' },
+  { k:'language', label:'Language' },
+];
+
 function Pill({ active, onClick, children }) {
   return <button onClick={onClick} style={{ padding:'8px 12px', borderRadius:999, border:`2px solid ${active?'#444':'#ddd'}`, background: active?'#fafafa':'#fff' }}>{children}</button>
 }
@@ -65,7 +117,7 @@ function Chip({ children }) {
   return <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'2px 8px', borderRadius:999, background:'#f5f5f7', border:'1px solid #e8e8ee', fontSize:13 }}>{children}</span>;
 }
 
-const findByKey = (arr, key) => arr.find(x => x.k === key);
+const findByKey = (arr, key) => arr.find(x => x.k === key) || null;
 
 // Extract a notes string from meta (supports both top-level and nested notes for backward compatibility)
 function extractNotes(meta) {
@@ -92,8 +144,13 @@ function MetaInline({ ev }) {
     const a = findByKey(PEE_AMT, m.pee.amount);
     if (a) chips.push(<Chip key="pee-a"><span>{a.emoji}</span><span>{a.label}</span></Chip>);
   }
+  if (ev.event_type === 'Diaper' && m.diaper) {
+    const map = { wet:'💧 Wet', dirty:'💩 Dirty', both:'💧💩 Both', dry:'🧷 Dry' };
+    const label = map[m.diaper.kind] || 'Change';
+    chips.push(<Chip key="diaper"><span>{label}</span></Chip>);
+  }
   if (ev.event_type === 'YumYum' && m.yum) {
-    const t = YUM_TYPES.find(x => x.k === m.yum.kind);
+    const t = findByKey(YUM_TYPES, m.yum.kind);
     if (t) chips.push(<Chip key="yum-k"><span>{t.emoji}</span><span>{t.label}</span></Chip>);
     if ((m.yum.quantity ?? null) !== null) chips.push(<Chip key="yum-q"><span>⚖️</span><span>{m.yum.quantity}</span><span style={{ color:'#777' }}>ml</span></Chip>);
   }
@@ -116,6 +173,29 @@ function MetaInline({ ev }) {
     const unit = (m.temp.unit || 'F').toUpperCase();
     const val = m.temp.value;
     if (val !== undefined) chips.push(<Chip key="temp"><span>🌡️</span><span>{val}°{unit}</span></Chip>);
+  }
+  if (ev.event_type === 'Medicine' && m.medicine) {
+    if (m.medicine.name) chips.push(<Chip key="med-n"><span>💊</span><span>{m.medicine.name}</span></Chip>);
+    if (m.medicine.dose !== undefined) chips.push(<Chip key="med-d"><span>⚖️</span><span>{m.medicine.dose}{m.medicine.unit?(' '+m.medicine.unit):''}</span></Chip>);
+    if (m.medicine.route) chips.push(<Chip key="med-r"><span>➡️</span><span>{m.medicine.route}</span></Chip>);
+  }
+  if (ev.event_type === 'Doctor' && m.doctor) {
+    const kind = findByKey(DOCTOR_KINDS, m.doctor.kind)?.label || m.doctor.kind || 'Visit';
+    const who = m.doctor.provider ? `· ${m.doctor.provider}` : '';
+    chips.push(<Chip key="doc"><span>🩺</span><span>{kind}{who}</span></Chip>);
+  }
+  if (ev.event_type === 'Heartbeat' && m.heartbeat) {
+    if (m.heartbeat.bpm !== undefined) chips.push(<Chip key="hb"><span>❤️</span><span>{m.heartbeat.bpm} bpm</span></Chip>);
+  }
+  if (ev.event_type === 'Play' && m.play) {
+    const k = findByKey(PLAY_KINDS, m.play.kind);
+    if (k) chips.push(<Chip key="play-k"><span>{k.emoji}</span><span>{k.label}</span></Chip>);
+    if (m.play.duration_min !== undefined) chips.push(<Chip key="play-d"><span>⏱️</span><span>{m.play.duration_min}m</span></Chip>);
+  }
+  if (ev.event_type === 'Milestone' && m.milestone) {
+    const cat = findByKey(MILE_KINDS, m.milestone.category)?.label || null;
+    if (m.milestone.title) chips.push(<Chip key="mile-t"><span>⭐</span><span>{m.milestone.title}</span></Chip>);
+    if (cat) chips.push(<Chip key="mile-c"><span>🏷️</span><span>{cat}</span></Chip>);
   }
   if (ev.event_type === 'Measure' && m.measure) {
     const kindMap = { baby_length:'Baby Length', head_circumference:'Head Circumference', mom_belly:'Mom Belly', mom_waist:'Mom Waist' };
@@ -184,13 +264,19 @@ export default function LogPage() {
     // defaults per type (notes are always optional at top-level)
     if (type==='DooDoo') setMetaDraft({ doo: { consistency:'normal', color:'yellow' }, notes:'' });
     else if (type==='PeePee') setMetaDraft({ pee: { amount:'medium' }, notes:'' });
+    else if (type==='Diaper') setMetaDraft({ diaper: { kind:'wet' }, notes:'' });
     else if (type==='YumYum') setMetaDraft({ yum: { kind:'bottle', quantity: 60 }, notes:'' });
     else if (type==='MyMood') setMetaDraft({ mood: '🙂', notes:'' });
     else if (type==='BabyMood') setMetaDraft({ mood: '🙂', notes:'' });
     else if (type==='KickMe') setMetaDraft({ kick: { count: 1, side: 'M' }, notes:'' });
     else if (type==='Contraction') setMetaDraft({ contraction: { intensity: 5, duration_sec: 30 }, notes:'' });
     else if (type==='Temperature') setMetaDraft({ temp: { unit:'F', value: 98.6 }, notes:'' });
-    else if (type==='Measure') setMetaDraft({ measure: { kind:'baby_length', inches: 20 }, notes:'' });
+    else if (type==='Medicine') setMetaDraft({ medicine: { name:'', dose: 0, unit:'mg', route:'PO' }, notes:'' });
+    else if (type==='Doctor') setMetaDraft({ doctor: { kind:'pediatrician', provider:'' }, notes:'' });
+    else if (type==='Heartbeat') setMetaDraft({ heartbeat: { bpm: 140 }, notes:'' });
+    else if (type==='Play') setMetaDraft({ play: { kind:'tummy', duration_min: 10 }, notes:'' });
+    else if (type==='Milestone') setMetaDraft({ milestone: { title:'', category:'first' }, notes:'' });
+    else if (type==='Note') setMetaDraft({ notes:'' });
     else if (type==='Puke') setMetaDraft({ puke: { amount:'small' }, notes:'' });
     else if (type==='SleepEnd') setMetaDraft({ sleep: { duration_min: 60 }, notes:'' });
     else setMetaDraft({ notes:'' });
@@ -284,7 +370,7 @@ export default function LogPage() {
                         title="Delete"
                         onClick={()=>deleteEvent(ev.id)}
                         style={{
-                          opacity: hoverId===ev.id ? 1 : 0,
+                          opacity: showTrash(ev.id) ? 1 : 0,
                           transition: 'opacity .15s ease',
                           padding:'6px 8px',
                           borderRadius:8,
@@ -332,6 +418,16 @@ export default function LogPage() {
               {PEE_AMT.map(opt => (
                 <Pill key={opt.k} active={metaDraft?.pee?.amount===opt.k} onClick={()=>setMetaDraft(prev=>({ ...prev, pee: { amount: opt.k } }))}>
                   {opt.emoji} {opt.label}
+                </Pill>
+              ))}
+            </div>
+          )}
+
+          {activeType==='Diaper' && (
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {['wet','dirty','both','dry'].map(k => (
+                <Pill key={k} active={metaDraft?.diaper?.kind===k} onClick={()=>setMetaDraft(prev=>({ ...prev, diaper: { kind: k } }))}>
+                  {k==='wet'?'💧 Wet':k==='dirty'?'💩 Dirty':k==='both'?'💧💩 Both':'🧷 Dry'}
                 </Pill>
               ))}
             </div>
@@ -402,6 +498,76 @@ export default function LogPage() {
               <div style={{ display:'flex', gap:8 }}>
                 <Pill active={(metaDraft?.temp?.unit||'F')==='F'} onClick={()=>setMetaDraft(prev=>({ ...prev, temp: { ...(prev.temp||{}), unit:'F' } }))}>°F</Pill>
                 <Pill active={(metaDraft?.temp?.unit||'F')==='C'} onClick={()=>setMetaDraft(prev=>({ ...prev, temp: { ...(prev.temp||{}), unit:'C' } }))}>°C</Pill>
+              </div>
+            </div>
+          )}
+
+          {activeType==='Medicine' && (
+            <div style={{ display:'grid', gap:10 }}>
+              <label>Name
+                <input value={metaDraft?.medicine?.name || ''} onChange={(e)=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), name: e.target.value } }))} placeholder="e.g., Acetaminophen" style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:'100%' }} />
+              </label>
+              <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                <label>Dose
+                  <input type="number" step="0.1" min="0" value={metaDraft?.medicine?.dose ?? 0} onChange={(e)=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), dose: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:120 }} />
+                </label>
+                <div style={{ display:'flex', gap:8 }}>
+                  {MED_UNITS.map(u => (
+                    <Pill key={u} active={(metaDraft?.medicine?.unit||'mg')===u} onClick={()=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), unit: u } }))}>{u}</Pill>
+                  ))}
+                </div>
+                <div style={{ display:'flex', gap:8 }}>
+                  {MED_ROUTES.map(r => (
+                    <Pill key={r.k} active={(metaDraft?.medicine?.route||'PO')===r.k} onClick={()=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), route: r.k } }))}>{r.label}</Pill>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeType==='Doctor' && (
+            <div style={{ display:'grid', gap:10 }}>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {DOCTOR_KINDS.map(d => (
+                  <Pill key={d.k} active={(metaDraft?.doctor?.kind||'pediatrician')===d.k} onClick={()=>setMetaDraft(prev=>({ ...prev, doctor: { ...(prev.doctor||{}), kind: d.k } }))}>{d.label}</Pill>
+                ))}
+              </div>
+              <label>Provider
+                <input value={metaDraft?.doctor?.provider || ''} onChange={(e)=>setMetaDraft(prev=>({ ...prev, doctor: { ...(prev.doctor||{}), provider: e.target.value } }))} placeholder="Dr. Smith" style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:'100%' }} />
+              </label>
+            </div>
+          )}
+
+          {activeType==='Heartbeat' && (
+            <div style={{ display:'flex', gap:12, alignItems:'center', flexWrap:'wrap' }}>
+              <label>BPM
+                <input type="number" min="0" value={metaDraft?.heartbeat?.bpm ?? 140} onChange={(e)=>setMetaDraft(prev=>({ ...prev, heartbeat: { ...(prev.heartbeat||{}), bpm: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:140 }} />
+              </label>
+            </div>
+          )}
+
+          {activeType==='Play' && (
+            <div style={{ display:'grid', gap:10 }}>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {PLAY_KINDS.map(p => (
+                  <Pill key={p.k} active={(metaDraft?.play?.kind||'tummy')===p.k} onClick={()=>setMetaDraft(prev=>({ ...prev, play: { ...(prev.play||{}), kind: p.k } }))}>{p.emoji} {p.label}</Pill>
+                ))}
+              </div>
+              <label>Duration (min)
+                <input type="number" min="0" value={metaDraft?.play?.duration_min ?? 10} onChange={(e)=>setMetaDraft(prev=>({ ...prev, play: { ...(prev.play||{}), duration_min: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:160 }} />
+              </label>
+            </div>
+          )}
+
+          {activeType==='Milestone' && (
+            <div style={{ display:'grid', gap:10 }}>
+              <label>Title
+                <input value={metaDraft?.milestone?.title || ''} onChange={(e)=>setMetaDraft(prev=>({ ...prev, milestone: { ...(prev.milestone||{}), title: e.target.value } }))} placeholder="e.g., First Smile" style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:'100%' }} />
+              </label>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+                {MILE_KINDS.map(m => (
+                  <Pill key={m.k} active={(metaDraft?.milestone?.category||'first')===m.k} onClick={()=>setMetaDraft(prev=>({ ...prev, milestone: { ...(prev.milestone||{}), category: m.k } }))}>{m.label}</Pill>
+                ))}
               </div>
             </div>
           )}

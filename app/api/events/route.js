@@ -7,9 +7,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const AllowedEvents = z.enum([
-  'DooDoo','PeePee','YumYum','KickMe','Contraction',
-  'MyMood','BabyMood','SleepStart','SleepEnd','BlahBlah','CryCry',
-  'Temperature','Measure','Sick','Puke'
+  'DooDoo','PeePee','Diaper','YumYum',
+  'SleepStart','SleepEnd',
+  'Puke','Sick','Temperature','Medicine','Doctor',
+  'BabyMood','MyMood','Play','Milestone','Note',
+  'KickMe','Contraction','Heartbeat',
+  'CryCry','BlahBlah','Measure'
 ]);
 
 const BodySchema = z.object({
