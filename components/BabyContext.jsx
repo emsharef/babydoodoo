@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 
 const KEY = 'bd_selected_baby';
@@ -35,7 +35,7 @@ export default function BabyProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  async function refreshBabies() {
+  const refreshBabies = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.from('babies').select('*').order('created_at', { ascending:false });
     if (!error) {
@@ -45,14 +45,14 @@ export default function BabyProvider({ children }) {
       setSelectedBabyId(current);
     }
     setLoading(false);
-  }
+  }, []);
 
-  function selectBaby(id) {
+  const selectBaby = useCallback((id) => {
     setSelectedBabyId(id || '');
     try { localStorage.setItem(KEY, id || ''); } catch {}
-  }
+  }, []);
 
-  const value = useMemo(() => ({ user, babies, selectedBabyId, selectBaby, refreshBabies, loading }), [user, babies, selectedBabyId, loading]);
+  const value = useMemo(() => ({ user, babies, selectedBabyId, selectBaby, refreshBabies, loading }), [user, babies, selectedBabyId, selectBaby, refreshBabies, loading]);
 
   return <BabyCtx.Provider value={value}>{children}</BabyCtx.Provider>;
 }

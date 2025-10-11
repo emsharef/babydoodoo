@@ -74,6 +74,7 @@ export default function SharePage() {
     if (!res.ok) { console.error('acceptInvite error', await res.json().catch(()=>({}))); alert('Failed to accept invite.'); return; }
     const payload = await res.json();
     const babyId = payload?.baby_id || payload?.membership?.baby_id;
+    await refreshBabies();
     if (babyId) { selectBaby(babyId); }
     await refreshSharing(babyId || selectedBabyId);
   }

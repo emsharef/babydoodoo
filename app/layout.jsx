@@ -17,12 +17,10 @@ export default function RootLayout({ children }) {
             <header style={{ display: 'grid', gap: 8 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <h1 style={{ margin: 0, fontSize: 28, fontFamily:'Nunito, Inter, sans-serif', letterSpacing: '.3px' }}>👶💩💩 BabyDooDoo</h1>
-                <small style={{ opacity: 0.6 }}>minimal</small>
               </div>
               <NavBar />
             </header>
             <main style={{ display: 'grid', gap: 16 }}>{children}</main>
-            <footer style={{ opacity: 0.6, fontSize: 12 }}>RLS + RPC • built for local testing</footer>
           </div>
         </ClientProviders>
       </body>
