@@ -3,11 +3,16 @@
 import ChartCard from './ChartCard';
 import KpiCard from './KpiCard';
 import EmptyState from './EmptyState';
-import StackedBarChart from './charts/StackedBarChart';
-import LineChart from './charts/LineChart';
-import PieChart from './charts/PieChart';
-import BarChart from './charts/BarChart';
-import Heatmap from './charts/Heatmap';
+import EChart from './charts/EChart';
+import {
+  diaperStackedOption,
+  lineOption,
+  multiLineOption,
+  pieOption,
+  horizontalBarOption,
+  heatmapOption,
+  scatterOption,
+} from './chartOptions';
 
 export const CATEGORY_COMPONENTS = {
   diapering: DiaperingCategory,
@@ -31,18 +36,18 @@ function DiaperingCategory({ data, totals }) {
       </div>
       {data.stackedBar.length ? (
         <ChartCard title="Diaper events per day" description="Stacked across pee, poo, and changes">
-          <StackedBarChart data={data.stackedBar} keys={['DooDoo', 'PeePee', 'Diaper']} xKey="day" height={280} />
+          <EChart option={diaperStackedOption(data.stackedBar.map(r => r.day), data.stackedBar)} />
         </ChartCard>
       ) : <EmptyState message="No diaper events in this range." />}
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
         {data.consistencyPie.length ? (
           <ChartCard title="Consistency" description="Counts by recorded consistency" height={280}>
-            <PieChart data={data.consistencyPie} height={260} />
+            <EChart option={pieOption(data.consistencyPie)} style={{ height: 260 }} />
           </ChartCard>
         ) : <EmptyState message="No consistency details captured." />}
         {data.diaperKindPie.length ? (
           <ChartCard title="Diaper change type" description="Wet, dirty, both, etc." height={280}>
-            <PieChart data={data.diaperKindPie} height={260} />
+            <EChart option={pieOption(data.diaperKindPie)} style={{ height: 260 }} />
           </ChartCard>
         ) : <EmptyState message="No diaper type records yet." />}
       </div>
@@ -61,13 +66,19 @@ function FeedingCategory({ data, totals }) {
       </div>
       {data.volumeLine[0]?.data?.some(point => point.y) ? (
         <ChartCard title="Intake volume over time" description="Total ml per day">
-          <LineChart series={data.volumeLine} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.volumeLine[0].data.map(p => p.x),
+              values: data.volumeLine[0].data.map(p => p.y),
+              unit: 'ml',
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No feeding quantity data." />}
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
         {data.typePie.length ? (
           <ChartCard title="Feed types" description="Distribution by source" height={280}>
-            <PieChart data={data.typePie} height={260} />
+            <EChart option={pieOption(data.typePie)} style={{ height: 260 }} />
           </ChartCard>
         ) : <EmptyState message="No feed type metadata." />}
         {data.feedAmounts.length ? (
@@ -99,7 +110,13 @@ function SleepCategory({ data }) {
       </div>
       {hasLine ? (
         <ChartCard title="Sleep minutes per day" description="Based on SleepEnd events">
-          <LineChart series={data.perDayLine} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.perDayLine[0].data.map(p => p.x),
+              values: data.perDayLine[0].data.map(p => p.y),
+              unit: 'min',
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No sleep duration recorded." />}
       {data.sessions.length ? (
@@ -132,12 +149,12 @@ function MoodCategory({ data }) {
       </div>
       {hasBar ? (
         <ChartCard title="Mood frequency" description="Counts per emoji">
-          <BarChart data={data.emojiBar} keys={['count']} xKey="label" height={280} />
+          <EChart option={horizontalBarOption(data.emojiBar, 'label', 'count')} />
         </ChartCard>
       ) : <EmptyState message="No mood entries yet." />}
       {hasHeatmap ? (
         <ChartCard title="Mood heatmap" description="Average sentiment by day & time of day" height={360}>
-          <Heatmap data={data.heatmap} />
+          <EChart option={heatmapOption(data.heatmap.map(row => row.day), data.heatmap)} style={{ height: 360 }} />
         </ChartCard>
       ) : <EmptyState message="Not enough mood data for heatmap." />}
     </div>
@@ -155,13 +172,19 @@ function HealthCategory({ data }) {
       </div>
       {hasTemp ? (
         <ChartCard title="Temperature trend" description="Values over time">
-          <LineChart series={data.temperatureLine} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.temperatureLine[0].data.map(p => p.x),
+              values: data.temperatureLine[0].data.map(p => p.y),
+              unit: data.temperatureReadings[0]?.unit || undefined,
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No temperature data." />}
       <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))' }}>
         {data.pukePie.length ? (
           <ChartCard title="Puke severity" description="Counts by amount" height={260}>
-            <PieChart data={data.pukePie} height={240} />
+            <EChart option={pieOption(data.pukePie)} style={{ height: 240 }} />
           </ChartCard>
         ) : <EmptyState message="No puke events recorded." />}
         <ChartCard title="Medication log" description="Recent entries" height={260}>
@@ -206,26 +229,35 @@ function PregnancyCategory({ data }) {
       </div>
       {kicksLineHasData ? (
         <ChartCard title="Kicks per day" description="Counts from KickMe events">
-          <LineChart series={data.kicksLine} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.kicksLine[0].data.map(p => p.x),
+              values: data.kicksLine[0].data.map(p => p.y),
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No kicks logged." />}
       {data.contractions.length ? (
         <ChartCard title="Contractions" description="Duration vs intensity" height={360}>
-          <BarChart
-            data={data.contractions.map(item => ({
-              label: item.occurred_at,
-              duration: item.duration || 0,
-              intensity: item.intensity || 0,
-            }))}
-            keys={['duration', 'intensity']}
-            stacked={false}
-            height={320}
+          <EChart
+            option={scatterOption({
+              points: data.contractions.map(item => [item.duration || 0, item.intensity || 0]),
+              xLabel: 'Duration (sec)',
+              yLabel: 'Intensity',
+            })}
+            style={{ height: 320 }}
           />
         </ChartCard>
       ) : <EmptyState message="No contraction events recorded." />}
       {data.heartbeatReadings.length ? (
         <ChartCard title="Heartbeat" description="BPM readings" height={320}>
-          <LineChart series={[{ id: 'BPM', data: data.heartbeatReadings.map(item => ({ x: item.occurred_at, y: item.bpm })) }]} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.heartbeatReadings.map(item => item.occurred_at),
+              values: data.heartbeatReadings.map(item => item.bpm),
+              unit: 'bpm',
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No heartbeat data." />}
     </div>
@@ -243,12 +275,18 @@ function PlayCategory({ data, totals }) {
       </div>
       {hasLine ? (
         <ChartCard title="Play minutes per day" description="Aggregated from play meta">
-          <LineChart series={data.minutesLine} height={320} />
+          <EChart
+            option={lineOption({
+              days: data.minutesLine[0].data.map(p => p.x),
+              values: data.minutesLine[0].data.map(p => p.y),
+              unit: 'min',
+            })}
+          />
         </ChartCard>
       ) : <EmptyState message="No recorded play minutes." />}
       {data.minutesByTypeBar.length ? (
         <ChartCard title="Play by activity" description="Total minutes by category" height={300}>
-          <BarChart data={data.minutesByTypeBar} keys={['minutes']} xKey="label" height={260} />
+          <EChart option={horizontalBarOption(data.minutesByTypeBar, 'label', 'minutes', { unit: 'min' })} style={{ height: 260 }} />
         </ChartCard>
       ) : <EmptyState message="No play type metadata." />}
     </div>
@@ -286,7 +324,7 @@ function NotesCategory({ data }) {
       </div>
       {data.keywords.length ? (
         <ChartCard title="Keyword frequency" description="Top twelve words" height={300}>
-          <BarChart data={data.keywords.map(item => ({ label: item.word, count: item.count }))} keys={['count']} xKey="label" height={260} />
+          <EChart option={horizontalBarOption(data.keywords, 'word', 'count')} style={{ height: 260 }} />
         </ChartCard>
       ) : <EmptyState message="Not enough notes for keyword analysis." />}
       {data.entries.length ? (

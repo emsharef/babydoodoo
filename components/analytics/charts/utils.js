@@ -17,3 +17,12 @@ export function formatFullDate(value) {
   }
   return value;
 }
+
+export function robustMax(values, percentile = 0.9) {
+  const cleaned = values
+    .filter(v => Number.isFinite(v) && v > 0)
+    .sort((a, b) => a - b);
+  if (cleaned.length === 0) return 1;
+  const idx = Math.min(cleaned.length - 1, Math.floor(cleaned.length * percentile));
+  return Math.max(1, cleaned[idx]);
+}
