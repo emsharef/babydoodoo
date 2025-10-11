@@ -17,6 +17,7 @@ export default function NavBar() {
     <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems:'center' }}>
       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
         <Link href="/" style={linkStyle}>Log</Link>
+        <Link href="/analytics" style={linkStyle}>Analytics</Link>
         <Link href="/share" style={linkStyle}>Share</Link>
         <Link href="/settings" style={linkStyle}>Settings</Link>
       </div>
