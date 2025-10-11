@@ -2,138 +2,109 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * BottomSheet v4 (with animation + proper interaction gating)
+ * BottomSheet
+ * - Smooth 500ms slide in/out
+ * - Auto-hide after autoHideMs (if provided), cancelled on any interaction inside
+ * - Clicking the handle or backdrop closes with slide-down animation
  */
-export default function BottomSheet({ open, onClose, children, autoHideMs = 5000, onBecomeSticky }) {
-  const ANIM_MS = 500;
+export default function BottomSheet({ open, onClose, children, autoHideMs = 5000 }) {
+  const [visible, setVisible] = useState(false);    // controls CSS class
+  const [mounted, setMounted] = useState(false);    // keep in DOM for exit anim
+  const timerRef = useRef(null);
+  const interactedRef = useRef(false);
 
-  const [mounted, setMounted] = useState(open);
-  const [animOpen, setAnimOpen] = useState(false);
-  const stickyRef = useRef(false);
-  const autoTimerRef = useRef(null);
-  const closeTimerRef = useRef(null);
-  const rootRef = useRef(null);
-  const openedAtRef = useRef(0);
-  const drag = useRef({ startY: 0, dy: 0, dragging: false });
-
-  const startAutoTimer = () => {
-    clearAutoTimer();
-    autoTimerRef.current = setTimeout(() => {
-      if (!stickyRef.current) onClose?.();
-    }, autoHideMs);
-  };
-  const clearAutoTimer = () => { if (autoTimerRef.current) { clearTimeout(autoTimerRef.current); autoTimerRef.current = null; } };
-  const clearCloseTimer = () => { if (closeTimerRef.current) { clearTimeout(closeTimerRef.current); closeTimerRef.current = null; } };
-
+  // Mount/unmount handling
   useEffect(() => {
     if (open) {
       setMounted(true);
-      stickyRef.current = false;
-      openedAtRef.current = Date.now();
-      startAutoTimer();
-      requestAnimationFrame(() => setAnimOpen(true));
-    } else {
-      clearAutoTimer();
-      setAnimOpen(false);
-      clearCloseTimer();
-      closeTimerRef.current = setTimeout(() => setMounted(false), ANIM_MS);
+      // Next tick to allow transition
+      requestAnimationFrame(() => setVisible(true));
+    } else if (mounted) {
+      setVisible(false);
+      // After animation, unmount
+      const t = setTimeout(() => setMounted(false), 500);
+      return () => clearTimeout(t);
     }
-    return () => {};
-  }, [open, autoHideMs, onClose]);
+  }, [open, mounted]);
 
-  useEffect(() => () => { clearAutoTimer(); clearCloseTimer(); }, []);
-
-  const makeSticky = () => {
-    if (Date.now() - openedAtRef.current < 120) return;
-    if (!stickyRef.current) {
-      stickyRef.current = true;
-      clearAutoTimer();
-      onBecomeSticky?.();
-    }
-  };
-
+  // Auto hide if provided and no interaction
   useEffect(() => {
-    if (!mounted) return;
-    const el = rootRef.current;
-    if (!el) return;
-    el.addEventListener('click', makeSticky);
-    el.addEventListener('input', makeSticky);
-    el.addEventListener('change', makeSticky);
-    el.addEventListener('keydown', makeSticky);
+    if (!open) return;
+    if (!autoHideMs || autoHideMs <= 0) return;
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      if (!interactedRef.current) {
+        // trigger close path
+        handleClose();
+      }
+    }, autoHideMs);
     return () => {
-      el.removeEventListener('click', makeSticky);
-      el.removeEventListener('input', makeSticky);
-      el.removeEventListener('change', makeSticky);
-      el.removeEventListener('keydown', makeSticky);
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [mounted]);
+  }, [open, autoHideMs]);
 
-  const dismiss = () => {
-    clearAutoTimer();
-    setAnimOpen(false);
-    clearCloseTimer();
-    closeTimerRef.current = setTimeout(() => {
-      setMounted(false);
-      onClose?.();
-    }, ANIM_MS);
-  };
-
-  function onHandlePointerDown(e) {
-    const y = (e.touches && e.touches[0]?.clientY) ?? e.clientY ?? 0;
-    drag.current = { startY: y, dy: 0, dragging: true };
-  }
-  function onHandlePointerMove(e) {
-    if (!drag.current.dragging) return;
-    const y = (e.touches && e.touches[0]?.clientY) ?? e.clientY ?? 0;
-    drag.current.dy = y - drag.current.startY;
-  }
-  function onHandlePointerUp() {
-    const { dy, dragging } = drag.current;
-    drag.current.dragging = false;
-    if (!dragging || dy > 20 || Math.abs(dy) < 4) {
-      dismiss();
+  function handleInteraction() {
+    interactedRef.current = true;
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
     }
   }
-  function onHandleClick(e) {
-    e.stopPropagation();
-    dismiss();
+
+  function handleClose() {
+    // slide down, then onClose after 500ms
+    setVisible(false);
+    setTimeout(() => {
+      onClose?.();
+      interactedRef.current = false;
+    }, 500);
   }
 
   if (!mounted) return null;
+
   return (
-    <div style={wrapStyle} aria-hidden={!open}>
-      <div ref={rootRef} style={sheetStyle(animOpen)}>
+    <div
+      aria-hidden={!visible}
+      onMouseDown={handleInteraction}
+      onKeyDown={handleInteraction}
+      onTouchStart={handleInteraction}
+      style={{
+        position:'fixed', inset:0, zIndex:60,
+        display:'flex', alignItems:'flex-end',
+        background: visible ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0)',
+        transition:'background 500ms ease'
+      }}
+      onClick={(e)=>{
+        // click on backdrop closes
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        style={{
+          width:'100%',
+          background:'#fff',
+          borderTopLeftRadius:16,
+          borderTopRightRadius:16,
+          boxShadow:'0 -6px 24px rgba(0,0,0,0.12)',
+          transform: visible ? 'translateY(0)' : 'translateY(100%)',
+          transition:'transform 500ms ease',
+          willChange:'transform'
+        }}
+      >
         <div
-          role="button"
-          aria-label="Dismiss"
-          onMouseDown={onHandlePointerDown}
-          onMouseMove={onHandlePointerMove}
-          onMouseUp={onHandlePointerUp}
-          onTouchStart={onHandlePointerDown}
-          onTouchMove={onHandlePointerMove}
-          onTouchEnd={onHandlePointerUp}
-          onClick={onHandleClick}
-          style={handleStyle}
-        />
-        {children}
+          onClick={handleClose}
+          onMouseDown={handleInteraction}
+          onTouchStart={handleInteraction}
+          style={{ display:'flex', justifyContent:'center', paddingTop:10, paddingBottom:6, cursor:'grab' }}
+        >
+          <div style={{ width:48, height:6, borderRadius:999, background:'#ddd' }} />
+        </div>
+        <div style={{ padding:12 }}>
+          {children}
+        </div>
       </div>
     </div>
   );
 }
-
-const wrapStyle = {
-  position: 'fixed', left: 0, right: 0, bottom: 0, top: 0,
-  display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
-  background: 'transparent', pointerEvents: 'none', zIndex: 50
-};
-const sheetStyle = (animOpen) => ({
-  pointerEvents: 'auto',
-  width: '100%', maxWidth: 960, margin: '0 auto',
-  background: '#fff', borderTopLeftRadius: 16, borderTopRightRadius: 16,
-  boxShadow: '0 -8px 30px rgba(0,0,0,.12)',
-  padding: 12,
-  transform: `translateY(${animOpen ? '0%' : '100%'})`,
-  transition: 'transform .5s ease',
-  border: '1px solid #eee'
-});
-const handleStyle = { width: 64, height: 8, borderRadius: 4, background: '#d8d8d8', margin: '6px auto 12px', cursor: 'grab' };
