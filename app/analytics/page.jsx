@@ -42,6 +42,23 @@ export default function AnalyticsPage() {
     to: range?.to || null,
   });
 
+  const [isNarrow, setIsNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 480 : false));
+  const [customExpanded, setCustomExpanded] = useState(() => (typeof window !== 'undefined' ? window.innerWidth > 480 : true));
+  useEffect(() => {
+    function handleResize() {
+      if (typeof window === 'undefined') return;
+      setIsNarrow(window.innerWidth <= 480);
+    }
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  useEffect(() => {
+    if (rangeKey === 'custom') {
+      setCustomExpanded(!isNarrow);
+    }
+  }, [rangeKey, isNarrow]);
+
   const categoryAvailability = useMemo(() => computeCategoryAvailability(analytics), [analytics]);
   const disabledKeys = useMemo(() => new Set(CATEGORIES.filter(cat => !categoryAvailability[cat.key]).map(cat => cat.key)), [categoryAvailability]);
   const availableCount = useMemo(() => CATEGORIES.filter(cat => categoryAvailability[cat.key]).length, [categoryAvailability]);
@@ -105,26 +122,27 @@ export default function AnalyticsPage() {
           </div>
         </div>
         {rangeKey === 'custom' ? (
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-              From
-              <input
-                type="date"
-                value={customRange.from}
-                onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
-                style={dateInputStyle}
-              />
-            </label>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-              To
-              <input
-                type="date"
-                value={customRange.to}
-                onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
-                style={dateInputStyle}
-              />
-            </label>
-          </div>
+          <details className="custom-range" open={customExpanded} onToggle={event => setCustomExpanded(event.target.open)}>
+            <summary>Select custom dates</summary>
+            <div className="custom-range__inputs">
+              <label>
+                <span>From</span>
+                <input
+                  type="date"
+                  value={customRange.from}
+                  onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
+                />
+              </label>
+              <label>
+                <span>To</span>
+                <input
+                  type="date"
+                  value={customRange.to}
+                  onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
+                />
+              </label>
+            </div>
+          </details>
         ) : null}
         <div className="range-summary" style={{ fontSize: 12, color: '#777' }}>{rangeSummary}</div>
       </header>
@@ -174,6 +192,67 @@ export default function AnalyticsPage() {
         .range-summary {
           line-height: 1.3;
         }
+        .custom-range {
+          background: #f7f7fb;
+          border: 1px solid #e2e2f0;
+          border-radius: 12px;
+          padding: 12px 14px;
+        }
+        .custom-range summary {
+          font-weight: 600;
+          font-size: 13px;
+          color: #333;
+          cursor: pointer;
+          list-style: none;
+          display: flex;
+          align-items: center;
+        }
+        .custom-range summary::-webkit-details-marker {
+          display: none;
+        }
+        .custom-range summary::after {
+          content: '▾';
+          margin-left: 6px;
+          font-size: 12px;
+        }
+        .custom-range[open] summary::after {
+          content: '▴';
+        }
+        .custom-range__inputs {
+          display: grid;
+          gap: 10px;
+          margin-top: 12px;
+        }
+        .custom-range__inputs label {
+          display: grid;
+          gap: 4px;
+          font-size: 12px;
+          color: #555;
+        }
+        .custom-range__inputs input {
+          padding: 10px 12px;
+          border-radius: 10px;
+          border: 1px solid #d0d0d9;
+        }
+        @media (min-width: 481px) {
+          .custom-range {
+            padding: 0;
+            background: transparent;
+            border: none;
+          }
+          .custom-range summary {
+            display: none;
+          }
+          .custom-range__inputs {
+            margin-top: 0;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .custom-range__inputs input {
+            background: #fff;
+            border: 1px solid #d0d0d9;
+          }
+        }
         @media (max-width: 480px) {
           .analytics-header__top {
             gap: 8px;
@@ -200,6 +279,16 @@ export default function AnalyticsPage() {
           .range-summary {
             font-size: 11px !important;
             color: #8b8b9a !important;
+          }
+          .custom-range {
+            padding: 10px 12px;
+            border-radius: 10px;
+          }
+          .custom-range__inputs {
+            gap: 8px;
+          }
+          .custom-range__inputs input {
+            background: #fff;
           }
         }
       `}</style>
@@ -265,12 +354,6 @@ function LoadingBlock() {
     </div>
   );
 }
-
-const dateInputStyle = {
-  padding: '10px 12px',
-  borderRadius: 10,
-  border: '1px solid #d0d0d9',
-};
 
 function computeCategoryAvailability(analytics = {}) {
   if (!analytics) return Object.fromEntries(CATEGORIES.map(cat => [cat.key, false]));
