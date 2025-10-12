@@ -49,10 +49,10 @@ export default function NavBar() {
   return (
     <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems:'center' }}>
       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-        <IconLink href="/" label="Log" Icon={IconNotebook} />
-        <IconLink href="/analytics" label="Analytics" Icon={IconChartBar} />
-        <IconLink href="/share" label="Share" Icon={IconUsersGroup} />
-        <IconLink href="/settings" label="Settings" Icon={IconSettings} />
+        <IconLink href="/" Icon={IconNotebook} />
+        <IconLink href="/analytics" Icon={IconChartBar} />
+        <IconLink href="/share" Icon={IconUsersGroup} />
+        <IconLink href="/settings" Icon={IconSettings} />
       </div>
       <div style={{ marginLeft: 'auto', display:'flex', gap:8, alignItems:'center' }}>
         <select id="babySelectTop" value={selectedBabyId} onChange={(e)=>selectBaby(e.target.value)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', minWidth: 120 }}>
@@ -121,26 +121,27 @@ export default function NavBar() {
 }
 const linkStyle = { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e5e5', background: '#fafafa', textDecoration: 'none', color: '#222', fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif' };
 
-function IconLink({ href, label, Icon }) {
+function IconLink({ href, Icon }) {
   return (
     <Link
       href={href}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '8px 12px',
-        borderRadius: 10,
+        justifyContent: 'center',
+        padding: '4px',
+        borderRadius: 8,
         border: '1px solid #e5e5e5',
         background: '#fafafa',
         textDecoration: 'none',
         color: '#222',
+        width: 30,
+        height: 30,
         fontWeight: 600,
         fontFamily: 'Inter, system-ui, sans-serif',
       }}
     >
-      <Icon size={18} stroke={1.9} />
-      <span>{label}</span>
+      <Icon size={24} stroke={1.8} />
     </Link>
   );
 }
