@@ -26,13 +26,29 @@ export const CATEGORY_COMPONENTS = {
   notes: NotesCategory,
 };
 
+const kpiRowStyle = {
+  display: 'grid',
+  gap: 12,
+  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+};
+
 function DiaperingCategory({ data, totals }) {
   const avgPerDay = totals.dayCount ? (data.total / totals.dayCount).toFixed(1) : '0';
+  const lastDirty = data.lastDirty ? new Date(data.lastDirty) : null;
+  const now = typeof window !== 'undefined' ? new Date() : null;
+  let sinceLabel = '—';
+  if (lastDirty && now) {
+    const diffMs = Math.max(0, now.getTime() - lastDirty.getTime());
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const hours = Math.floor(diffMinutes / 60);
+    const minutes = diffMinutes % 60;
+    sinceLabel = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')} ago`;
+  }
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Total diaper actions" value={data.total} subtitle={`${avgPerDay} per day`} />
-        <KpiCard title="Last dirty diaper" value={data.lastDirty ? new Date(data.lastDirty).toLocaleString() : '—'} subtitle="Based on diaper.kind" />
+        <KpiCard title="Last dirty diaper" value={sinceLabel} subtitle={lastDirty ? lastDirty.toLocaleString() : 'Based on diaper.kind'} />
       </div>
       {data.stackedBar.length ? (
         <ChartCard title="Diaper events per day" description="Stacked across pee, poo, and changes">
@@ -59,7 +75,7 @@ function FeedingCategory({ data, totals }) {
   const avgInterval = data.avgIntervalMinutes ? `${data.avgIntervalMinutes.toFixed(0)} min` : '—';
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Total feeds" value={data.totalFeeds} subtitle={`Longest feed: ${data.longestFeedQuantity || 0} ml`} />
         <KpiCard title="Volume" value={`${data.totalVolume} ml`} subtitle="Sum of recorded quantities" />
         <KpiCard title="Average interval" value={avgInterval} subtitle="Between feeds" />
@@ -104,7 +120,7 @@ function SleepCategory({ data }) {
   const hasLine = data.perDayLine[0]?.data?.some(point => point.y);
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Total sleep" value={`${totalHours} h`} subtitle="Across the selected window" />
         <KpiCard title="Sessions" value={data.sessions.length} subtitle={`Avg ${avg}`} />
       </div>
@@ -143,7 +159,7 @@ function MoodCategory({ data }) {
   const hasHeatmap = data.heatmap.some(row => ['Night', 'Morning', 'Afternoon', 'Evening'].some(period => Math.abs(row[period]) > 0.001));
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Mood entries" value={data.total} subtitle="Both baby and caregiver" />
         <KpiCard title="Distinct moods" value={data.emojiBar.length} subtitle="Unique emoji captured" />
       </div>
@@ -165,7 +181,7 @@ function HealthCategory({ data }) {
   const hasTemp = data.temperatureLine[0]?.data?.length;
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Temperature readings" value={data.temperatureReadings.length} subtitle="Visible to caregivers" />
         <KpiCard title="Medicines" value={data.medicines.length} subtitle="Recorded doses" />
         <KpiCard title="Doctor visits" value={data.doctorVisits.length} subtitle="During this window" />
@@ -222,7 +238,7 @@ function PregnancyCategory({ data }) {
   const kicksLineHasData = data.kicksLine[0]?.data?.some(point => point.y);
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Total kicks" value={data.totalKicks} subtitle="KickMe events" />
         <KpiCard title="Avg contraction intensity" value={avgIntensity} subtitle="On 1-10 scale" />
         <KpiCard title="Heartbeat readings" value={data.heartbeatReadings.length} subtitle={data.lastHeartbeat ? `Latest ${new Date(data.lastHeartbeat).toLocaleString()}` : 'No readings yet'} />
@@ -269,7 +285,7 @@ function PlayCategory({ data, totals }) {
   const hasLine = data.minutesLine[0]?.data?.some(point => point.y);
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Total play minutes" value={data.totalMinutes} subtitle={`${avgPerDay} per day`} />
         <KpiCard title="Sessions" value={data.totalSessions} subtitle="Logged play events" />
       </div>
@@ -296,7 +312,7 @@ function PlayCategory({ data, totals }) {
 function MilestonesCategory({ data }) {
   return (
     <div style={{ display: 'grid', gap: 18 }}>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+      <div style={kpiRowStyle}>
         <KpiCard title="Milestones" value={data.length} subtitle="During this window" />
       </div>
       {data.length ? (

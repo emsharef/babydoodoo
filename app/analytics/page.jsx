@@ -9,10 +9,10 @@ import { CATEGORY_COMPONENTS } from '@/components/analytics/Categories';
 import { useAnalyticsData } from '@/lib/hooks/useAnalyticsData';
 
 const RANGE_PRESETS = [
-  { key: '7d', label: 'Last 7 days', days: 7 },
-  { key: '14d', label: 'Last 14 days', days: 14 },
-  { key: '30d', label: 'Last 30 days', days: 30 },
-  { key: 'custom', label: 'Custom range', days: null },
+  { key: '7d', label: 'Last 7 days', labelShort: '7', days: 7 },
+  { key: '14d', label: 'Last 14 days', labelShort: '14', days: 14 },
+  { key: '30d', label: 'Last 30 days', labelShort: '30', days: 30 },
+  { key: 'custom', label: 'Custom range', labelShort: 'Custom', days: null },
 ];
 
 const CATEGORIES = [
@@ -79,18 +79,17 @@ export default function AnalyticsPage() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      <header style={{ display: 'grid', gap: 12, background: '#fff', border: '1px solid #ececf2', borderRadius: 16, padding: '18px 20px' }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 28, fontFamily: 'Nunito, Inter, sans-serif' }}>Analytics</h2>
-            <span style={{ fontSize: 14, color: '#666' }}>{selectedBaby.name}</span>
-          </div>
-          <div style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+      <header className="analytics-header" style={{ display: 'grid', gap: 12, background: '#fff', border: '1px solid #ececf2', borderRadius: 16, padding: '18px 20px' }}>
+        <div className="analytics-header__top" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: 28, fontFamily: 'Nunito, Inter, sans-serif' }}>Analytics</h2>
+          <div className="range-presets" style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+            <span className="range-presets__label">Range:</span>
             {RANGE_PRESETS.map(option => (
               <button
                 key={option.key}
                 type="button"
                 onClick={() => setRangeKey(option.key)}
+                title={option.label}
                 style={{
                   padding: '8px 12px',
                   borderRadius: 10,
@@ -100,7 +99,7 @@ export default function AnalyticsPage() {
                   cursor: 'pointer',
                 }}
               >
-                {option.label}
+                {option.labelShort}
               </button>
             ))}
           </div>
@@ -127,7 +126,7 @@ export default function AnalyticsPage() {
             </label>
           </div>
         ) : null}
-        <div style={{ fontSize: 13, color: '#777' }}>Range: {rangeSummary}</div>
+        <div className="range-summary" style={{ fontSize: 12, color: '#777' }}>{rangeSummary}</div>
       </header>
 
       {loading ? (
@@ -138,7 +137,13 @@ export default function AnalyticsPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 20 }}>
-          <section style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <section
+            style={{
+              display: 'grid',
+              gap: 12,
+              gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+            }}
+          >
             <KpiCard title="Events" value={analytics.totals.totalEvents} subtitle={`${analytics.totals.dayCount} day window`} />
             <KpiCard title="Active categories" value={availableCount} subtitle="With data in range" />
           </section>
@@ -152,6 +157,52 @@ export default function AnalyticsPage() {
           }
         </div>
       )}
+      <style jsx>{`
+        .range-presets {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .range-presets__label {
+          font-size: 13px;
+          color: #555;
+          font-weight: 600;
+        }
+        .range-presets button {
+          flex: 0 0 auto;
+        }
+        .range-summary {
+          line-height: 1.3;
+        }
+        @media (max-width: 480px) {
+          .analytics-header__top {
+            gap: 8px;
+            align-items: flex-start;
+          }
+          .range-presets__label {
+            font-size: 12px;
+            color: #777;
+            flex: 0 0 auto;
+          }
+          .range-presets {
+            margin-left: 0 !important;
+            gap: 8px !important;
+            flex-wrap: nowrap !important;
+            overflow-x: auto;
+            padding-bottom: 4px;
+            margin-right: -12px;
+            padding-right: 12px;
+            scrollbar-width: none;
+          }
+          .range-presets::-webkit-scrollbar {
+            display: none;
+          }
+          .range-summary {
+            font-size: 11px !important;
+            color: #8b8b9a !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

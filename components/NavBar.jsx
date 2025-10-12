@@ -10,11 +10,24 @@ export default function NavBar() {
   const [signingOut, setSigningOut] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [isNarrow, setIsNarrow] = useState(false);
   const { babies, selectedBabyId, selectBaby } = useBaby();
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user || null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Adjust icon sizes on narrow screens without changing appearance via CSS
+    function update() {
+      try {
+        setIsNarrow((typeof window !== 'undefined') ? window.innerWidth <= 480 : false);
+      } catch {}
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, []);
 
   useEffect(() => {
@@ -48,14 +61,14 @@ export default function NavBar() {
   if (!user) return null;
   return (
     <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems:'center' }}>
-      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-        <IconLink href="/" Icon={IconNotebook} />
-        <IconLink href="/analytics" Icon={IconChartBar} />
-        <IconLink href="/share" Icon={IconUsersGroup} />
-        <IconLink href="/settings" Icon={IconSettings} />
+      <div style={{ display:'flex', gap:isNarrow ? 4 : 8, alignItems:'center', flexWrap:'nowrap', overflowX:'auto' }}>
+        <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
+        <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
+        <IconLink href="/share" Icon={IconUsersGroup} isNarrow={isNarrow} />
+        <IconLink href="/settings" Icon={IconSettings} isNarrow={isNarrow} />
       </div>
       <div style={{ marginLeft: 'auto', display:'flex', gap:8, alignItems:'center' }}>
-        <select id="babySelectTop" value={selectedBabyId} onChange={(e)=>selectBaby(e.target.value)} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', minWidth: 120 }}>
+        <select id="babySelectTop" value={selectedBabyId} onChange={(e)=>selectBaby(e.target.value)} style={{ padding:isNarrow ? '6px 8px' : '8px 10px', borderRadius:10, border:'1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>
           <option value="" disabled>Select...</option>
           {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
@@ -65,8 +78,8 @@ export default function NavBar() {
           type="button"
           onClick={() => setMenuOpen(prev => !prev)}
           style={{
-            width: 40,
-            height: 40,
+            width: isNarrow ? 32 : 40,
+            height: isNarrow ? 32 : 40,
             borderRadius: '50%',
             border: '1px solid #e5e5e5',
             background: '#fafafa',
@@ -77,7 +90,7 @@ export default function NavBar() {
           }}
           title="Account"
         >
-          <IconUserCircle size={22} stroke={1.8} color="#1f2933" />
+          <IconUserCircle size={isNarrow ? 18 : 22} stroke={1.8} color="#1f2933" />
         </button>
         {menuOpen && (
           <div
@@ -121,7 +134,7 @@ export default function NavBar() {
 }
 const linkStyle = { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e5e5', background: '#fafafa', textDecoration: 'none', color: '#222', fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif' };
 
-function IconLink({ href, Icon }) {
+function IconLink({ href, Icon, isNarrow }) {
   return (
     <Link
       href={href}
@@ -129,19 +142,19 @@ function IconLink({ href, Icon }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '4px',
+        padding: isNarrow ? '3px' : '4px',
         borderRadius: 8,
         border: '1px solid #e5e5e5',
         background: '#fafafa',
         textDecoration: 'none',
         color: '#222',
-        width: 30,
-        height: 30,
+        width: isNarrow ? 26 : 30,
+        height: isNarrow ? 26 : 30,
         fontWeight: 600,
         fontFamily: 'Inter, system-ui, sans-serif',
       }}
     >
-      <Icon size={24} stroke={1.8} />
+      <Icon size={isNarrow ? 20 : 24} stroke={1.8} />
     </Link>
   );
 }
