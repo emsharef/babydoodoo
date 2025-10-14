@@ -1,9 +1,17 @@
 'use client';
 
 export default function CategoryTabs({ categories, active, onSelect, disabledKeys = new Set() }) {
+  const enabled = [];
+  const disabled = [];
+  categories.forEach(cat => {
+    if (disabledKeys.has(cat.key)) disabled.push(cat);
+    else enabled.push(cat);
+  });
+  const ordered = [...enabled, ...disabled];
+
   return (
     <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-      {categories.map(cat => {
+      {ordered.map(cat => {
         const isActive = cat.key === active;
         const isDisabled = disabledKeys.has(cat.key);
         return (
