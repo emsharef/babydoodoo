@@ -41,12 +41,56 @@ const MEASURE_KINDS = [
   { k:'mom_weight', label:'Mom Weight' },
 ];
 
+function toDateTimeLocalString(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  const year = date.getFullYear();
+  const month = pad(date.getMonth() + 1);
+  const day = pad(date.getDate());
+  const hours = pad(date.getHours());
+  const minutes = pad(date.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function parseDateTimeLocalString(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function Pill({ active, onClick, children }) {
   return <button onClick={onClick} style={{ padding:'8px 12px', borderRadius:999, border:`2px solid ${active?'#444':'#ddd'}`, background: active?'#fafafa':'#fff' }}>{children}</button>
 }
 
 function Chip({ children }) {
   return <span style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'2px 8px', borderRadius:999, background:'#f5f5f7', border:'1px solid #e8e8ee', fontSize:13 }}>{children}</span>;
+}
+
+function QuickButtons({ values, activeValue, onSelect, format }) {
+  return (
+    <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+      {values.map(val => {
+        const isActive = activeValue === val;
+        return (
+          <button
+            key={val}
+            type="button"
+            onClick={() => onSelect(val)}
+            style={{
+              padding:'6px 10px',
+              borderRadius:8,
+              border:`1px solid ${isActive ? '#4f7cff' : '#d0d0d9'}`,
+              background: isActive ? '#e6edff' : '#fff',
+              fontSize:13,
+              cursor:'pointer',
+              fontWeight: isActive ? 600 : 500
+            }}
+          >
+            {format ? format(val) : val}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 const findByKey = (arr, key) => arr.find(x => x.k === key) || null;
@@ -174,6 +218,15 @@ export default function LogPage() {
   const [editingEvent, setEditingEvent] = useState(null); // full event row
   const [activeType, setActiveType] = useState(null);
   const [metaDraft, setMetaDraft] = useState({}); // per-type + optional top-level notes
+  const [overrideTimestamp, setOverrideTimestamp] = useState('');
+
+  useEffect(() => {
+    if (editingEvent?.occurred_at) {
+      setOverrideTimestamp(toDateTimeLocalString(new Date(editingEvent.occurred_at)));
+    } else {
+      setOverrideTimestamp('');
+    }
+  }, [editingEvent?.id, editingEvent?.occurred_at]);
 
   const redirectPath = process.env.NEXT_PUBLIC_AUTH_REDIRECT_PATH || '/auth/callback';
 
@@ -238,24 +291,29 @@ export default function LogPage() {
     setEditingEvent(event);
     setActiveType(type);
     // defaults per type (notes are always optional at top-level)
-    if (type==='DooDoo') setMetaDraft({ doo: { consistency:'normal', color:'yellow' }, notes:'' });
-    else if (type==='PeePee') setMetaDraft({ pee: { amount:'medium' }, notes:'' });
-    else if (type==='Diaper') setMetaDraft({ diaper: { kind:'wet' }, notes:'' });
-    else if (type==='YumYum') setMetaDraft({ yum: { kind:'bottle', quantity: 60 }, notes:'' });
-    else if (type==='MyMood') setMetaDraft({ mood: '🙂', notes:'' });
-    else if (type==='BabyMood') setMetaDraft({ mood: '🙂', notes:'' });
-    else if (type==='KickMe') setMetaDraft({ kick: { count: 1, side: 'M' }, notes:'' });
-    else if (type==='Contraction') setMetaDraft({ contraction: { intensity: 5, duration_sec: 30 }, notes:'' });
-    else if (type==='Temperature') setMetaDraft({ temp: { unit:'F', value: 98.6 }, notes:'' });
-    else if (type==='Medicine') setMetaDraft({ medicine: { name:'', dose: 0, unit:'mg', route:'PO' }, notes:'' });
-    else if (type==='Doctor') setMetaDraft({ doctor: { kind:'pediatrician', provider:'' }, notes:'' });
-    else if (type==='Heartbeat') setMetaDraft({ heartbeat: { bpm: 140 }, notes:'' });
-    else if (type==='Play') setMetaDraft({ play: { kind:'tummy', duration_min: 10 }, notes:'' });
-    else if (type==='Milestone') setMetaDraft({ milestone: { title:'', category:'first' }, notes:'' });
-    else if (type==='Note') setMetaDraft({ notes:'' });
-    else if (type==='Puke') setMetaDraft({ puke: { amount:'small' }, notes:'' });
-    else if (type==='SleepEnd') setMetaDraft({ sleep: { duration_min: 60 }, notes:'' });
-    else setMetaDraft({ notes:'' });
+    const defaultDraft =
+      type==='DooDoo' ? { doo: { consistency:'normal', color:'yellow' }, notes:'' } :
+      type==='PeePee' ? { pee: { amount:'medium' }, notes:'' } :
+      type==='Diaper' ? { diaper: { kind:'wet' }, notes:'' } :
+      type==='YumYum' ? { yum: { kind:'bottle', quantity: 60 }, notes:'' } :
+      type==='MyMood' ? { mood: '🙂', notes:'' } :
+      type==='BabyMood' ? { mood: '🙂', notes:'' } :
+      type==='KickMe' ? { kick: { count: 1, side: 'M' }, notes:'' } :
+      type==='Contraction' ? { contraction: { intensity: 5, duration_sec: 30 }, notes:'' } :
+      type==='Temperature' ? { temp: { unit:'F', value: 98.6 }, notes:'' } :
+      type==='Medicine' ? { medicine: { name:'', dose: 0, unit:'mg', route:'PO' }, notes:'' } :
+      type==='Doctor' ? { doctor: { kind:'pediatrician', provider:'' }, notes:'' } :
+      type==='Heartbeat' ? { heartbeat: { bpm: 140 }, notes:'' } :
+      type==='Play' ? { play: { kind:'tummy', duration_min: 10 }, notes:'' } :
+      type==='Milestone' ? { milestone: { title:'', category:'first' }, notes:'' } :
+      type==='Note' ? { notes:'' } :
+      type==='Puke' ? { puke: { amount:'small' }, notes:'' } :
+      type==='SleepEnd' ? { sleep: { duration_min: 60 }, notes:'' } :
+      { notes:'' };
+    setMetaDraft(defaultDraft);
+    const occurredAtLocal = new Date(event.occurred_at || Date.now());
+    const isoLocal = toDateTimeLocalString(occurredAtLocal);
+    setOverrideTimestamp(isoLocal);
     setSheetOpen(true);
   }
 
@@ -272,11 +330,17 @@ export default function LogPage() {
     if (!editingEvent) return;
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token; if (!token) return alert('Missing session token.');
-    const res = await fetch(`/api/events/${editingEvent.id}`, { method:'PATCH', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify({ meta: metaDraft }) });
+    const payload = { meta: metaDraft };
+    if (overrideTimestamp) {
+      const parsed = parseDateTimeLocalString(overrideTimestamp);
+      if (parsed) payload.occurred_at = parsed.toISOString();
+    }
+    const res = await fetch(`/api/events/${editingEvent.id}`, { method:'PATCH', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify(payload) });
     if (!res.ok) { console.error('updateEvent error', await res.json().catch(()=>({}))); alert('Failed to save.'); return; }
     const { event } = await res.json();
     setEvents(prev => prev.map(e => e.id === event.id ? event : e));
     setSheetOpen(false); setEditingEvent(null); setActiveType(null);
+    setOverrideTimestamp('');
   }
 
   async function sendMagicLink(e) {
@@ -435,6 +499,12 @@ export default function LogPage() {
                 <input type="number" min="0" value={metaDraft?.yum?.quantity||0} onChange={(e)=>setMetaDraft(prev=>({ ...prev, yum: { ...(prev.yum||{}), quantity: Number(e.target.value||0) } }))} style={{ padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:120 }} />
                 <span style={{ color:'#666' }}>ml</span>
               </label>
+              <QuickButtons
+                values={[30,60,90,120,150]}
+                activeValue={metaDraft?.yum?.quantity}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, yum: { ...(prev.yum||{}), quantity: val } }))}
+                format={(val)=>`${val} ml`}
+              />
             </div>
           )}
 
@@ -459,6 +529,11 @@ export default function LogPage() {
               <label>Count
                 <input type="number" min="1" value={metaDraft?.kick?.count||1} onChange={(e)=>setMetaDraft(prev=>({ ...prev, kick: { ...(prev.kick||{}), count: Number(e.target.value||1) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:100 }} />
               </label>
+              <QuickButtons
+                values={[1,2,3,5,8]}
+                activeValue={metaDraft?.kick?.count}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, kick: { ...(prev.kick||{}), count: val } }))} 
+              />
               <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                 <Pill active={metaDraft?.kick?.side==='L'} onClick={()=>setMetaDraft(prev=>({ ...prev, kick: { ...(prev.kick||{}), side:'L' } }))}>⬅️ Left</Pill>
                 <Pill active={metaDraft?.kick?.side==='M'} onClick={()=>setMetaDraft(prev=>({ ...prev, kick: { ...(prev.kick||{}), side:'M' } }))}>⬆️ Middle</Pill>
@@ -472,9 +547,20 @@ export default function LogPage() {
               <label>Intensity (1–10)
                 <input type="number" min="1" max="10" value={metaDraft?.contraction?.intensity||5} onChange={(e)=>setMetaDraft(prev=>({ ...prev, contraction: { ...(prev.contraction||{}), intensity: Number(e.target.value||5) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:120 }} />
               </label>
+              <QuickButtons
+                values={[1,2,3,4,5,6,7,8,9,10]}
+                activeValue={metaDraft?.contraction?.intensity}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, contraction: { ...(prev.contraction||{}), intensity: val } }))}
+              />
               <label>Duration (sec)
                 <input type="number" min="0" value={metaDraft?.contraction?.duration_sec||30} onChange={(e)=>setMetaDraft(prev=>({ ...prev, contraction: { ...(prev.contraction||{}), duration_sec: Number(e.target.value||0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:120 }} />
               </label>
+              <QuickButtons
+                values={[30,45,60,90,120]}
+                activeValue={metaDraft?.contraction?.duration_sec}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, contraction: { ...(prev.contraction||{}), duration_sec: val } }))}
+                format={(val)=>`${val}s`}
+              />
             </div>
           )}
 
@@ -487,6 +573,12 @@ export default function LogPage() {
                 <Pill active={(metaDraft?.temp?.unit||'F')==='F'} onClick={()=>setMetaDraft(prev=>({ ...prev, temp: { ...(prev.temp||{}), unit:'F' } }))}>°F</Pill>
                 <Pill active={(metaDraft?.temp?.unit||'F')==='C'} onClick={()=>setMetaDraft(prev=>({ ...prev, temp: { ...(prev.temp||{}), unit:'C' } }))}>°C</Pill>
               </div>
+              <QuickButtons
+                values={(metaDraft?.temp?.unit||'F') === 'C' ? [36.5,37,37.5,38] : [97,98.6,99.5,100.4]}
+                activeValue={metaDraft?.temp?.value}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, temp: { ...(prev.temp||{ unit:'F' }), value: val } }))}
+                format={(val)=>`${val}°${(metaDraft?.temp?.unit||'F')}`}
+              />
             </div>
           )}
 
@@ -499,6 +591,11 @@ export default function LogPage() {
                 <label>Dose
                   <input type="number" step="0.1" min="0" value={metaDraft?.medicine?.dose ?? 0} onChange={(e)=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), dose: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:120 }} />
                 </label>
+                <QuickButtons
+                  values={[0.5,1,2.5,5,7.5]}
+                  activeValue={metaDraft?.medicine?.dose}
+                  onSelect={(val)=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), dose: val } }))}
+                />
                 <div style={{ display:'flex', gap:8 }}>
                   {['mg','ml','drops'].map(u => (
                     <Pill key={u} active={(metaDraft?.medicine?.unit||'mg')===u} onClick={()=>setMetaDraft(prev=>({ ...prev, medicine: { ...(prev.medicine||{}), unit: u } }))}>{u}</Pill>
@@ -531,6 +628,12 @@ export default function LogPage() {
               <label>BPM
                 <input type="number" min="0" value={metaDraft?.heartbeat?.bpm ?? 140} onChange={(e)=>setMetaDraft(prev=>({ ...prev, heartbeat: { ...(prev.heartbeat||{}), bpm: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:140 }} />
               </label>
+              <QuickButtons
+                values={[110,120,130,140,150]}
+                activeValue={metaDraft?.heartbeat?.bpm}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, heartbeat: { ...(prev.heartbeat||{}), bpm: val } }))}
+                format={(val)=>`${val} bpm`}
+              />
             </div>
           )}
 
@@ -544,6 +647,12 @@ export default function LogPage() {
               <label>Duration (min)
                 <input type="number" min="0" value={metaDraft?.play?.duration_min ?? 10} onChange={(e)=>setMetaDraft(prev=>({ ...prev, play: { ...(prev.play||{}), duration_min: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:160 }} />
               </label>
+              <QuickButtons
+                values={[10,15,20,30,45]}
+                activeValue={metaDraft?.play?.duration_min}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, play: { ...(prev.play||{}), duration_min: val } }))}
+                format={(val)=>`${val} min`}
+              />
             </div>
           )}
 
@@ -570,6 +679,20 @@ export default function LogPage() {
               <label>Value (inches)
                 <input type="number" step="0.1" min="0" value={metaDraft?.measure?.inches ?? 20} onChange={(e)=>setMetaDraft(prev=>({ ...prev, measure: { ...(prev.measure||{}), inches: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:160 }} />
               </label>
+              <QuickButtons
+                values={
+                  metaDraft?.measure?.kind === 'head_circumference'
+                    ? [13,14,15,16,17]
+                    : metaDraft?.measure?.kind === 'mom_belly'
+                      ? [30,32,34,36,38]
+                      : metaDraft?.measure?.kind === 'mom_waist'
+                        ? [28,30,32,34,36]
+                        : [18,20,22,24,26]
+                }
+                activeValue={metaDraft?.measure?.inches}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, measure: { ...(prev.measure||{}), inches: val } }))}
+                format={(val)=>`${val}"`}
+              />
             </div>
           )}
 
@@ -588,10 +711,16 @@ export default function LogPage() {
               <label>Duration (min)
                 <input type="number" min="0" value={metaDraft?.sleep?.duration_min ?? 60} onChange={(e)=>setMetaDraft(prev=>({ ...prev, sleep: { ...(prev.sleep||{}), duration_min: Number(e.target.value || 0) } }))} style={{ marginLeft:8, padding:'8px 10px', borderRadius:10, border:'1px solid #ccc', width:140 }} />
               </label>
+              <QuickButtons
+                values={[30,45,60,90,120]}
+                activeValue={metaDraft?.sleep?.duration_min}
+                onSelect={(val)=>setMetaDraft(prev=>({ ...prev, sleep: { ...(prev.sleep||{}), duration_min: val } }))}
+                format={(val)=>`${val} min`}
+              />
             </div>
           )}
 
-          {/* Shared optional notes for ALL event types */}
+          {/* Shared optional notes */}
           <label style={{ display:'grid', gap:6 }}>
             <span>Notes (optional)</span>
             <input
@@ -602,10 +731,19 @@ export default function LogPage() {
             />
           </label>
 
-          <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginTop:6 }}>
-            <button onClick={()=>editingEvent && deleteEvent(editingEvent.id)} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #ff9c9c', background:'#ffd4d4', fontWeight:700 }}>Undo</button>
+          <label style={{ display:'grid', gap:6 }}>
+            <span>Timestamp</span>
+            <input
+              type="datetime-local"
+              value={overrideTimestamp}
+              onChange={(e)=>setOverrideTimestamp(e.target.value)}
+              style={{ padding:'10px 12px', borderRadius:10, border:'1px solid #ccc' }}
+            />
+          </label>
+
+          <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:6 }}>
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={()=>{ setSheetOpen(false); setEditingEvent(null); setActiveType(null); }} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #e5e5e5', background:'#fff' }}>Dismiss</button>
+              <button onClick={()=>editingEvent && deleteEvent(editingEvent.id)} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #ff9c9c', background:'#ffd4d4', fontWeight:700 }}>Undo</button>
               <button onClick={saveMeta} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #73c69c', background:'#c7f0d8', fontWeight:700 }}>Save</button>
             </div>
           </div>

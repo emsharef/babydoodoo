@@ -40,7 +40,10 @@ export async function PATCH(request, context) {
   const __start = Date.now(); const __id = newRequestId(); const __ip = getIp(request);
   const params = await context.params;
   const IdSchema = z.string().uuid();
-  const BodySchema = z.object({ meta: z.any() });
+  const BodySchema = z.object({
+    meta: z.any(),
+    occurred_at: z.string().datetime().optional(),
+  });
   const id = IdSchema.safeParse(params?.id);
   if (!id.success) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events/[id]', method: 'PATCH', status: 400, ms: __ms, userId: null, ip: __ip });
@@ -63,7 +66,9 @@ export async function PATCH(request, context) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events/[id]', method: 'PATCH', status: 429, ms: __ms, userId: user.id, ip: __ip });
     return new Response(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429, headers: { 'content-type': 'application/json' } });
   }
-  const { data, error } = await supabase.from('events').update({ meta: body.data.meta }).eq('id', id.data).select('*').single();
+  const updatePayload = { meta: body.data.meta };
+  if (body.data.occurred_at) updatePayload.occurred_at = body.data.occurred_at;
+  const { data, error } = await supabase.from('events').update(updatePayload).eq('id', id.data).select('*').single();
   if (error) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events/[id]', method: 'PATCH', status: 400, ms: __ms, userId: user.id, ip: __ip });
     return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { 'content-type': 'application/json' } });
