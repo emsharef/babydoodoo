@@ -219,6 +219,7 @@ export default function LogPage() {
   const [activeType, setActiveType] = useState(null);
   const [metaDraft, setMetaDraft] = useState({}); // per-type + optional top-level notes
   const [overrideTimestamp, setOverrideTimestamp] = useState('');
+  const [sheetLoading, setSheetLoading] = useState(false);
 
   useEffect(() => {
     if (editingEvent?.occurred_at) {
@@ -282,15 +283,11 @@ export default function LogPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert('Please sign in first.');
     if (!selectedBaby) return alert('Please select or create a baby first (Settings).');
+    setSheetLoading(true);
+    const now = new Date();
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token; if (!token) return alert('Missing session token.');
-    const res = await fetch('/api/events', { method:'POST', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify({ baby_id: selectedBaby.id, event_type:type }) });
-    if (!res.ok) { console.error('logEvent error', await res.json().catch(()=>({}))); alert('Failed to log event.'); return; }
-    const { event } = await res.json();
-    setEvents(prev => [event, ...prev].slice(0,10));
-    setEditingEvent(event);
+    const token = session?.access_token; if (!token) { setSheetLoading(false); return alert('Missing session token.'); }
     setActiveType(type);
-    // defaults per type (notes are always optional at top-level)
     const defaultDraft =
       type==='DooDoo' ? { doo: { consistency:'normal', color:'yellow' }, notes:'' } :
       type==='PeePee' ? { pee: { amount:'medium' }, notes:'' } :
@@ -311,10 +308,35 @@ export default function LogPage() {
       type==='SleepEnd' ? { sleep: { duration_min: 60 }, notes:'' } :
       { notes:'' };
     setMetaDraft(defaultDraft);
-    const occurredAtLocal = new Date(event.occurred_at || Date.now());
-    const isoLocal = toDateTimeLocalString(occurredAtLocal);
-    setOverrideTimestamp(isoLocal);
+    const optimisticEvent = { id: 'pending', event_type: type, occurred_at: now.toISOString(), meta: {} };
+    setEditingEvent(optimisticEvent);
+    setOverrideTimestamp(toDateTimeLocalString(now));
     setSheetOpen(true);
+
+    try {
+      const res = await fetch('/api/events', { method:'POST', headers: { 'content-type':'application/json', authorization:`Bearer ${token}` }, body: JSON.stringify({ baby_id: selectedBaby.id, event_type:type }) });
+      if (!res.ok) {
+        console.error('logEvent error', await res.json().catch(()=>({})));
+        alert('Failed to log event.');
+        setSheetOpen(false);
+        setEditingEvent(null);
+        setActiveType(null);
+        setSheetLoading(false);
+        return;
+      }
+      const { event } = await res.json();
+      setEvents(prev => [event, ...prev].slice(0,10));
+      setEditingEvent(event);
+      setOverrideTimestamp(toDateTimeLocalString(new Date(event.occurred_at || Date.now())));
+    } catch (err) {
+      console.error('logEvent exception', err);
+      alert('Failed to log event. Check your connection and try again.');
+      setSheetOpen(false);
+      setEditingEvent(null);
+      setActiveType(null);
+    } finally {
+      setSheetLoading(false);
+    }
   }
 
   async function deleteEvent(id) {
@@ -328,6 +350,7 @@ export default function LogPage() {
 
   async function saveMeta() {
     if (!editingEvent) return;
+    if (editingEvent.id === 'pending') return; // still awaiting creation
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token; if (!token) return alert('Missing session token.');
     const payload = { meta: metaDraft };
@@ -743,8 +766,20 @@ export default function LogPage() {
 
           <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:6 }}>
             <div style={{ display:'flex', gap:8 }}>
-              <button onClick={()=>editingEvent && deleteEvent(editingEvent.id)} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #ff9c9c', background:'#ffd4d4', fontWeight:700 }}>Undo</button>
-              <button onClick={saveMeta} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #73c69c', background:'#c7f0d8', fontWeight:700 }}>Save</button>
+              <button
+                onClick={()=>editingEvent && editingEvent.id !== 'pending' && deleteEvent(editingEvent.id)}
+                disabled={sheetLoading || editingEvent?.id === 'pending'}
+                style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #ff9c9c', background:'#ffd4d4', fontWeight:700, opacity: sheetLoading || editingEvent?.id==='pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id==='pending' ? 'not-allowed' : 'pointer' }}
+              >
+                Undo
+              </button>
+              <button
+                onClick={saveMeta}
+                disabled={sheetLoading || editingEvent?.id === 'pending'}
+                style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #73c69c', background:'#c7f0d8', fontWeight:700, opacity: sheetLoading || editingEvent?.id==='pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id==='pending' ? 'not-allowed' : 'pointer' }}
+              >
+                {sheetLoading ? 'Saving…' : 'Save'}
+              </button>
             </div>
           </div>
         </div>
