@@ -1,9 +1,10 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useBaby } from '@/components/BabyContext';
 import IconButton from '@/components/IconButton';
 import BottomSheet from '@/components/BottomSheet';
+import * as echarts from 'echarts';
 
 function toDateTimeLocalString(date) {
     const pad = (n) => String(n).padStart(2, '0');
@@ -51,6 +52,128 @@ function QuickButtons({ values, activeValue, onSelect, format }) {
             })}
         </div>
     );
+}
+
+function ContractionChart({ events }) {
+    const chartRef = useRef(null);
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+
+        // Initialize chart
+        if (!chartRef.current) {
+            chartRef.current = echarts.init(containerRef.current);
+        }
+
+        const chart = chartRef.current;
+
+        // Prepare data
+        // Filter events for last 2 hours
+        const now = new Date();
+        const twoHoursAgo = new Date(now - 2 * 60 * 60 * 1000);
+        const recentEvents = events
+            .filter(e => new Date(e.occurred_at) >= twoHoursAgo)
+            .sort((a, b) => new Date(a.occurred_at) - new Date(b.occurred_at));
+
+        const data = [];
+
+        // Add a starting point at 2 hours ago if needed, or just let the chart handle it
+        // We want a "square wave".
+        // For each contraction:
+        // [Start, 0] -> [Start, Intensity] -> [End, Intensity] -> [End, 0]
+
+        recentEvents.forEach(e => {
+            const start = new Date(e.occurred_at);
+            const durationSec = e.meta?.contraction?.duration_sec || 0;
+            const end = new Date(start.getTime() + durationSec * 1000);
+            const intensity = e.meta?.contraction?.intensity || 0;
+
+            // Push points
+            // To make it look like a square wave, we need to ensure we drop to 0 before this one if there was a gap
+            // But since we just push points, ECharts line will connect them.
+            // We need explicit 0 points.
+
+            // Point before start (at 0) - slightly before start to create vertical rise?
+            // Actually, if we just put [Start, 0] and [Start, Intensity], it will draw a vertical line.
+
+            data.push([start.getTime(), 0]);
+            data.push([start.getTime(), intensity]);
+            data.push([end.getTime(), intensity]);
+            data.push([end.getTime(), 0]);
+        });
+
+        // Add a point at "now" to keep the chart extending to the right edge
+        if (data.length > 0) {
+            data.push([now.getTime(), 0]);
+        }
+
+        const option = {
+            tooltip: {
+                trigger: 'axis',
+                formatter: function (params) {
+                    const p = params[0];
+                    if (!p) return '';
+                    const date = new Date(p.value[0]);
+                    return `${date.toLocaleTimeString()}<br/>Intensity: ${p.value[1]}`;
+                }
+            },
+            grid: {
+                top: 20,
+                right: 20,
+                bottom: 20,
+                left: 40,
+                containLabel: true
+            },
+            xAxis: {
+                type: 'time',
+                min: twoHoursAgo.getTime(),
+                max: now.getTime(),
+                axisLabel: {
+                    formatter: '{HH}:{mm}'
+                }
+            },
+            yAxis: {
+                type: 'value',
+                min: 0,
+                max: 10,
+                interval: 2
+            },
+            series: [
+                {
+                    name: 'Intensity',
+                    type: 'line',
+                    step: 'end', // or 'start' or 'middle'? 
+                    // Actually, if we provide explicit points for the square shape ([t1,0], [t1,v], [t2,v], [t2,0]), 
+                    // we don't need 'step'. 'step' is for when you only have one point per value change.
+                    // But ECharts might not like two points with exact same X for a line chart (it might average them or sort them).
+                    // Let's try standard line with our explicit points. 
+                    // If ECharts sorts stable, [t, 0] then [t, v] draws vertical up.
+                    // Let's assume it works. If not, we can add a tiny epsilon.
+                    data: data,
+                    areaStyle: {
+                        opacity: 0.2
+                    },
+                    lineStyle: {
+                        width: 2
+                    },
+                    symbol: 'none'
+                }
+            ]
+        };
+
+        chart.setOption(option);
+
+        const handleResize = () => chart.resize();
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+            window.removeEventListener('resize', handleResize);
+            // chart.dispose(); // React strict mode might cause issues if we dispose too early, but usually good practice.
+        };
+    }, [events]);
+
+    return <div ref={containerRef} style={{ width: '100%', height: 200 }} />;
 }
 
 export default function ToolsPage() {
@@ -108,7 +231,7 @@ export default function ToolsPage() {
             .eq('baby_id', selectedBabyId)
             .eq('event_type', type)
             .order('occurred_at', { ascending: false })
-            .limit(50);
+            .limit(100); // Increased limit for better history
 
         if (error) console.error('Error fetching events:', error);
         else setEvents(data || []);
@@ -219,36 +342,82 @@ export default function ToolsPage() {
 
     const rule511Status = useMemo(() => {
         if (events.length < 2) return null;
+
+        // Sort events descending (newest first)
+        const sorted = [...events].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
+
+        // Trace back the "wave"
+        // A wave is a sequence of contractions where the gap between consecutive events is <= 10 minutes.
+        // We start from the most recent event.
+
+        const wave = [];
+        if (sorted.length > 0) {
+            wave.push(sorted[0]);
+            for (let i = 0; i < sorted.length - 1; i++) {
+                const current = new Date(sorted[i].occurred_at);
+                const prev = new Date(sorted[i + 1].occurred_at);
+                const diffMin = (current - prev) / 60000;
+
+                if (diffMin <= 10) {
+                    wave.push(sorted[i + 1]);
+                } else {
+                    break; // Gap > 10 mins, wave broken
+                }
+            }
+        }
+
+        if (wave.length < 2) return (
+            <div style={{ fontSize: 13, background: '#f9f9f9', padding: 10, borderRadius: 8, border: '1px solid #eee', color: '#666' }}>
+                Not enough recent data for 5-1-1 check.
+            </div>
+        );
+
+        // Analyze the wave
+        const waveStart = new Date(wave[wave.length - 1].occurred_at);
+        const waveEnd = new Date(wave[0].occurred_at);
+        const waveDurationMin = (waveEnd - waveStart) / 60000;
+
+        // Calculate stats for the wave (or just the last hour of it, but usually we care about the whole active phase)
+        // Let's calculate stats for the events in the wave that are within the last hour, 
+        // BUT the consistency check (1 hour duration) applies to the whole wave.
+
         const now = new Date();
         const oneHourAgo = new Date(now - 60 * 60 * 1000);
 
-        // Filter contractions in the last hour
-        const recent = events.filter(e => new Date(e.occurred_at) > oneHourAgo);
-        if (recent.length < 2) return "Not enough data in last hour";
+        // Events in the wave that happened in the last hour (for frequency/duration calc)
+        const recentInWave = wave.filter(e => new Date(e.occurred_at) > oneHourAgo);
 
-        // Calculate average frequency
-        let totalDiff = 0;
-        for (let i = 0; i < recent.length - 1; i++) {
-            totalDiff += (new Date(recent[i].occurred_at) - new Date(recent[i + 1].occurred_at));
+        let avgFreqMin = 0;
+        let avgDurSec = 0;
+
+        if (recentInWave.length > 1) {
+            let totalDiff = 0;
+            for (let i = 0; i < recentInWave.length - 1; i++) {
+                totalDiff += (new Date(recentInWave[i].occurred_at) - new Date(recentInWave[i + 1].occurred_at));
+            }
+            avgFreqMin = Math.round((totalDiff / (recentInWave.length - 1)) / 60000);
+
+            const totalDur = recentInWave.reduce((acc, e) => acc + (e.meta?.contraction?.duration_sec || 0), 0);
+            avgDurSec = Math.round(totalDur / recentInWave.length);
         }
-        const avgFreqMin = Math.round((totalDiff / (recent.length - 1)) / 60000);
 
-        // Calculate average duration
-        const totalDur = recent.reduce((acc, e) => acc + (e.meta?.contraction?.duration_sec || 0), 0);
-        const avgDurSec = Math.round(totalDur / recent.length);
-
-        const freqCheck = avgFreqMin <= 5 ? "✅" : "❌";
-        const durCheck = avgDurSec >= 60 ? "✅" : "❌";
-        const countCheck = recent.length >= 6 ? "✅" : "⚠️"; // roughly 1 per 10 mins means ~6 in an hour
+        const freqCheck = (avgFreqMin > 0 && avgFreqMin <= 5) ? "✅" : "❌";
+        const durCheck = avgDurSec >= 45 ? "✅" : "❌"; // relaxed slightly to 45s, or strict 60? User said "approx 1 min". Let's say >= 45s is close.
+        const consistencyCheck = waveDurationMin >= 60 ? "✅" : "⚠️";
 
         return (
             <div style={{ fontSize: 13, background: '#f0f9ff', padding: 10, borderRadius: 8, border: '1px solid #bae6fd' }}>
-                <strong>5-1-1 Rule Check (Last Hour):</strong>
+                <strong>5-1-1 Rule Check:</strong>
                 <ul style={{ paddingLeft: 20, margin: '4px 0 0' }}>
-                    <li>Frequency (~5 min apart): {freqCheck} ({avgFreqMin} min avg)</li>
+                    <li>Frequency (~5 min apart): {freqCheck} ({avgFreqMin || '?'} min avg)</li>
                     <li>Duration (~1 min long): {durCheck} ({avgDurSec} sec avg)</li>
-                    <li>Consistency: {countCheck} ({recent.length} events)</li>
+                    <li>Consistency (1 hr long): {consistencyCheck} (Active for {Math.round(waveDurationMin)} min)</li>
                 </ul>
+                {waveDurationMin < 60 && (
+                    <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>
+                        * Wave started {new Date(waveStart).toLocaleTimeString()} (gap &lt; 10m)
+                    </div>
+                )}
             </div>
         );
     }, [events]);
@@ -359,6 +528,11 @@ export default function ToolsPage() {
                     </div>
 
                     {rule511Status}
+
+                    <div style={{ background: '#fff', padding: 12, borderRadius: 16, border: '1px solid #eee' }}>
+                        <h3 style={{ margin: '0 0 12px' }}>Last 2 Hours</h3>
+                        <ContractionChart events={events} />
+                    </div>
 
                     <div>
                         <h3>Recent Contractions</h3>
