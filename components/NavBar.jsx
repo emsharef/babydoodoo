@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
-import { IconNotebook, IconChartBar, IconUsersGroup, IconSettings, IconUserCircle } from '@tabler/icons-react';
+import { IconNotebook, IconChartBar, IconUsersGroup, IconSettings, IconUserCircle, IconTools } from '@tabler/icons-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useBaby } from './BabyContext';
 
@@ -23,7 +23,7 @@ export default function NavBar() {
     function update() {
       try {
         setIsNarrow((typeof window !== 'undefined') ? window.innerWidth <= 480 : false);
-      } catch {}
+      } catch { }
     }
     update();
     window.addEventListener('resize', update);
@@ -60,15 +60,16 @@ export default function NavBar() {
 
   if (!user) return null;
   return (
-    <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems:'center' }}>
-      <div style={{ display:'flex', gap:isNarrow ? 4 : 8, alignItems:'center', flexWrap:'nowrap', overflowX:'auto' }}>
+    <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: isNarrow ? 4 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
         <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
         <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
+        <IconLink href="/tools" Icon={IconTools} isNarrow={isNarrow} />
         <IconLink href="/share" Icon={IconUsersGroup} isNarrow={isNarrow} />
         <IconLink href="/settings" Icon={IconSettings} isNarrow={isNarrow} />
       </div>
-      <div style={{ marginLeft: 'auto', display:'flex', gap:8, alignItems:'center' }}>
-        <select id="babySelectTop" value={selectedBabyId} onChange={(e)=>selectBaby(e.target.value)} style={{ padding:isNarrow ? '6px 8px' : '8px 10px', borderRadius:10, border:'1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+        <select id="babySelectTop" value={selectedBabyId} onChange={(e) => selectBaby(e.target.value)} style={{ padding: isNarrow ? '6px 8px' : '8px 10px', borderRadius: 10, border: '1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>
           <option value="" disabled>Select...</option>
           {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
