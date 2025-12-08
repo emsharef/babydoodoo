@@ -2,34 +2,36 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useBaby } from '@/components/BabyContext';
+import { useLanguage } from '@/components/LanguageContext';
 import Link from 'next/link';
 import { EVENT_DEFS, makeDefaultButtonConfig } from '@/lib/events';
 
-function Row({ i, total, item, def, onToggle, onMove, disabled }) {
+function Row({ i, total, item, def, onToggle, onMove, disabled, t }) {
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr auto auto auto', alignItems:'center', gap:10, padding:'10px 12px', border:'1px solid #eee', borderRadius:10, background:'#fff' }}>
-      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-        <span style={{ fontSize:20 }}>{def?.emoji || '🔘'}</span>
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto', alignItems: 'center', gap: 10, padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, background: '#fff' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <span style={{ fontSize: 20 }}>{def?.emoji || '🔘'}</span>
         <div>
-          <div style={{ fontWeight:700 }}>{def?.label || item.type}</div>
-          <div style={{ color:'#777', fontSize:12 }}>{item.type}</div>
+          <div style={{ fontWeight: 700 }}>{t(`event.${item.type.toLowerCase()}`) || def?.label || item.type}</div>
+          <div style={{ color: '#777', fontSize: 12 }}>{item.type}</div>
         </div>
       </div>
-      <label style={{ display:'flex', alignItems:'center', gap:8 }}>
-        <input type="checkbox" checked={item.show !== false} disabled={disabled} onChange={(e)=>onToggle(i, e.target.checked)} />
-        <span>{item.show !== false ? 'Shown' : 'Hidden'}</span>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input type="checkbox" checked={item.show !== false} disabled={disabled} onChange={(e) => onToggle(i, e.target.checked)} />
+        <span>{item.show !== false ? t('settings.shown') : t('settings.hidden')}</span>
       </label>
-      <div style={{ display:'flex', gap:6 }}>
-        <button disabled={disabled || i===0} onClick={()=>onMove(i, -1)} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #ddd', background:'#f8f8f8', cursor: disabled || i===0 ? 'not-allowed':'pointer' }}>↑</button>
-        <button disabled={disabled || i===total-1} onClick={()=>onMove(i, +1)} style={{ padding:'6px 10px', borderRadius:8, border:'1px solid #ddd', background:'#f8f8f8', cursor: disabled || i===total-1 ? 'not-allowed':'pointer' }}>↓</button>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <button disabled={disabled || i === 0} onClick={() => onMove(i, -1)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #ddd', background: '#f8f8f8', cursor: disabled || i === 0 ? 'not-allowed' : 'pointer' }}>↑</button>
+        <button disabled={disabled || i === total - 1} onClick={() => onMove(i, +1)} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #ddd', background: '#f8f8f8', cursor: disabled || i === total - 1 ? 'not-allowed' : 'pointer' }}>↓</button>
       </div>
-      <div style={{ width:30, textAlign:'right' }}>{i+1}</div>
+      <div style={{ width: 30, textAlign: 'right' }}>{i + 1}</div>
     </div>
   );
 }
 
 export default function SettingsPage() {
   const { user, babies, selectedBabyId } = useBaby();
+  const { t } = useLanguage();
   const [role, setRole] = useState(null); // 'parent' | 'caregiver' | 'owner'
   const [baby, setBaby] = useState(null);
   const [items, setItems] = useState([]);
@@ -40,7 +42,7 @@ export default function SettingsPage() {
   const canEdit = role === 'parent' || role === 'owner';
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
 
-  useEffect(() => { 
+  useEffect(() => {
     if (!user || !selectedBaby) return;
     let cancelled = false;
     (async () => {
@@ -106,50 +108,50 @@ export default function SettingsPage() {
         if (typeof window !== 'undefined') {
           localStorage.setItem('button_config:' + selectedBaby.id, JSON.stringify(payload.button_config));
         }
-      } catch {}
-      alert('Saved!');
+      } catch { }
+      alert(t('settings.saved'));
       setDirty(false);
     } catch (e) {
       console.error('save buttons error', e);
-      alert('Failed to save. See console.');
+      alert(t('settings.failed_save'));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div style={{ padding:16, display:'grid', gap:12 }}>
-      <h2 style={{ fontFamily:'Nunito, Inter, sans-serif', marginBottom:4 }}>Settings</h2>
+    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+      <h2 style={{ fontFamily: 'Nunito, Inter, sans-serif', marginBottom: 4 }}>{t('settings.title')}</h2>
       {!selectedBaby ? (
-        <p style={{ color:'#666' }}>Select or create a baby first.</p>
+        <p style={{ color: '#666' }}>{t('settings.select_first')}</p>
       ) : (
-        <div style={{ display:'grid', gap:12 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-            <strong style={{ fontSize:16 }}>Customize Buttons for:</strong>
-            <span style={{ padding:'4px 10px', background:'#f5f5f7', border:'1px solid #e8e8ee', borderRadius:999 }}>{baby?.name || '—'}</span>
-            {role && <span style={{ marginLeft:8, fontSize:12, color:'#777' }}>Your role: <strong>{role}</strong></span>}
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <strong style={{ fontSize: 16 }}>{t('settings.customize_for')}</strong>
+            <span style={{ padding: '4px 10px', background: '#f5f5f7', border: '1px solid #e8e8ee', borderRadius: 999 }}>{baby?.name || '—'}</span>
+            {role && <span style={{ marginLeft: 8, fontSize: 12, color: '#777' }}>{t('settings.your_role')} <strong>{t(`share.role_${role}`) || role}</strong></span>}
           </div>
 
           {!canEdit && (
-            <div style={{ padding:12, border:'1px solid #ffe4a3', background:'#fff7df', borderRadius:10, color:'#7a5a00' }}>
-              Only <strong>parents</strong> (or the owner) can edit button configuration. You can still view the current setup.
+            <div style={{ padding: 12, border: '1px solid #ffe4a3', background: '#fff7df', borderRadius: 10, color: '#7a5a00' }}>
+              {t('settings.edit_warning')}
             </div>
           )}
 
-          <div style={{ display:'grid', gap:8 }}>
+          <div style={{ display: 'grid', gap: 8 }}>
             {loading ? <div>Loading…</div> : items.map((it, i) => {
               const def = EVENT_DEFS.find(d => d.type === it.type) || null;
-              return <Row key={it.type} i={i} total={items.length} item={it} def={def} onToggle={onToggle} onMove={onMove} disabled={!canEdit} />;
+              return <Row key={it.type} i={i} total={items.length} item={it} def={def} onToggle={onToggle} onMove={onMove} disabled={!canEdit} t={t} />;
             })}
           </div>
 
-          <div style={{ display:'flex', gap:8 }}>
-            <button onClick={onReset} disabled={!canEdit} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #e8e5e5', background:'#fff' }}>Reset to defaults</button>
-            <button onClick={onSave} disabled={!canEdit || !dirty || saving} style={{ padding:'10px 14px', borderRadius:10, border:'1px solid #73c69c', background:'#c7f0d8', fontWeight:700 }}>{saving ? 'Saving…' : 'Save'}</button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={onReset} disabled={!canEdit} style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #e8e5e5', background: '#fff' }}>{t('settings.reset')}</button>
+            <button onClick={onSave} disabled={!canEdit || !dirty || saving} style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #73c69c', background: '#c7f0d8', fontWeight: 700 }}>{saving ? t('tools.saving') : t('tools.save')}</button>
           </div>
 
-          <div style={{ marginTop:8 }}>
-            <Link href="/">← Back to Log</Link>
+          <div style={{ marginTop: 8 }}>
+            <Link href="/">{t('settings.back_log')}</Link>
           </div>
         </div>
       )}

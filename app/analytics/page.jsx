@@ -2,39 +2,38 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useBaby } from '@/components/BabyContext';
+import { useLanguage } from '@/components/LanguageContext';
 import CategoryTabs from '@/components/analytics/CategoryTabs';
 import KpiCard from '@/components/analytics/KpiCard';
 import EmptyState from '@/components/analytics/EmptyState';
 import { CATEGORY_COMPONENTS } from '@/components/analytics/Categories';
 import { useAnalyticsData } from '@/lib/hooks/useAnalyticsData';
 
-const RANGE_PRESETS = [
-  { key: '7d', label: 'Last 7 days', labelShort: '7', days: 7 },
-  { key: '14d', label: 'Last 14 days', labelShort: '14', days: 14 },
-  { key: '30d', label: 'Last 30 days', labelShort: '30', days: 30 },
-  { key: 'custom', label: 'Custom range', labelShort: 'Custom', days: null },
-];
-
-const CATEGORIES = [
-  { key: 'diapering', label: 'Diapering' },
-  { key: 'feeding', label: 'Feeding' },
-  { key: 'sleep', label: 'Sleep' },
-  { key: 'mood', label: 'Mood' },
-  { key: 'health', label: 'Health' },
-  { key: 'pregnancy', label: 'Pregnancy' },
-  { key: 'play', label: 'Play' },
-  { key: 'milestones', label: 'Milestones' },
-  { key: 'notes', label: 'Notes' },
+const CATEGORY_KEYS = [
+  'diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'
 ];
 
 export default function AnalyticsPage() {
   const { user, babies, selectedBabyId } = useBaby();
+  const { t } = useLanguage();
   const [rangeKey, setRangeKey] = useState('7d');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
-  const [activeCategory, setActiveCategory] = useState(CATEGORIES[0].key);
+  const [activeCategory, setActiveCategory] = useState(CATEGORY_KEYS[0]);
+
+  const RANGE_PRESETS = useMemo(() => [
+    { key: '7d', label: t('analytics.last_7d'), labelShort: '7', days: 7 },
+    { key: '14d', label: t('analytics.last_14d'), labelShort: '14', days: 14 },
+    { key: '30d', label: t('analytics.last_30d'), labelShort: '30', days: 30 },
+    { key: 'custom', label: t('analytics.custom'), labelShort: t('analytics.custom_short'), days: null },
+  ], [t]);
+
+  const CATEGORIES = useMemo(() => CATEGORY_KEYS.map(key => ({
+    key,
+    label: t(`analytics.cat_${key}`)
+  })), [t]);
 
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
-  const range = useMemo(() => computeRange(rangeKey, customRange), [rangeKey, customRange]);
+  const range = useMemo(() => computeRange(rangeKey, customRange, RANGE_PRESETS), [rangeKey, customRange, RANGE_PRESETS]);
 
   const { analytics, loading, error } = useAnalyticsData({
     babyId: selectedBaby?.id || null,
@@ -60,8 +59,8 @@ export default function AnalyticsPage() {
   }, [rangeKey, isNarrow]);
 
   const categoryAvailability = useMemo(() => computeCategoryAvailability(analytics), [analytics]);
-  const disabledKeys = useMemo(() => new Set(CATEGORIES.filter(cat => !categoryAvailability[cat.key]).map(cat => cat.key)), [categoryAvailability]);
-  const availableCount = useMemo(() => CATEGORIES.filter(cat => categoryAvailability[cat.key]).length, [categoryAvailability]);
+  const disabledKeys = useMemo(() => new Set(CATEGORIES.filter(cat => !categoryAvailability[cat.key]).map(cat => cat.key)), [categoryAvailability, CATEGORIES]);
+  const availableCount = useMemo(() => CATEGORIES.filter(cat => categoryAvailability[cat.key]).length, [categoryAvailability, CATEGORIES]);
 
   useEffect(() => {
     if (loading) return;
@@ -70,15 +69,15 @@ export default function AnalyticsPage() {
     if (next) {
       setActiveCategory(next.key);
     }
-  }, [loading, categoryAvailability, activeCategory]);
+  }, [loading, categoryAvailability, activeCategory, CATEGORIES]);
 
   const ActiveCategoryComponent = CATEGORY_COMPONENTS[activeCategory] || null;
 
   if (!user) {
     return (
       <div style={{ padding: 24 }}>
-        <h2>Analytics</h2>
-        <p>Sign in to explore baby trends.</p>
+        <h2>{t('analytics.title')}</h2>
+        <p>{t('analytics.signin_msg')}</p>
       </div>
     );
   }
@@ -86,21 +85,21 @@ export default function AnalyticsPage() {
   if (!selectedBaby) {
     return (
       <div style={{ padding: 24, display: 'grid', gap: 12 }}>
-        <h2>Analytics</h2>
-        <EmptyState message="Select or create a baby first to unlock analytics." />
+        <h2>{t('analytics.title')}</h2>
+        <EmptyState message={t('analytics.select_baby_msg')} />
       </div>
     );
   }
 
-  const rangeSummary = range ? `${formatDate(range.fromDisplay)} → ${formatDate(range.toDisplay)}` : 'Select dates';
+  const rangeSummary = range ? `${formatDate(range.fromDisplay)} → ${formatDate(range.toDisplay)}` : t('analytics.select_custom');
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
       <header className="analytics-header" style={{ display: 'grid', gap: 12, background: '#fff', border: '1px solid #ececf2', borderRadius: 16, padding: '18px 20px' }}>
         <div className="analytics-header__top" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 28, fontFamily: 'Nunito, Inter, sans-serif' }}>Analytics</h2>
+          <h2 style={{ margin: 0, fontSize: 28, fontFamily: 'Nunito, Inter, sans-serif' }}>{t('analytics.title')}</h2>
           <div className="range-presets" style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-            <span className="range-presets__label">Range:</span>
+            <span className="range-presets__label">{t('analytics.range')}</span>
             {RANGE_PRESETS.map(option => (
               <button
                 key={option.key}
@@ -123,10 +122,10 @@ export default function AnalyticsPage() {
         </div>
         {rangeKey === 'custom' ? (
           <details className="custom-range" open={customExpanded} onToggle={event => setCustomExpanded(event.target.open)}>
-            <summary>Select custom dates</summary>
+            <summary>{t('analytics.select_custom')}</summary>
             <div className="custom-range__inputs">
               <label>
-                <span>From</span>
+                <span>{t('analytics.from')}</span>
                 <input
                   type="date"
                   value={customRange.from}
@@ -134,7 +133,7 @@ export default function AnalyticsPage() {
                 />
               </label>
               <label>
-                <span>To</span>
+                <span>{t('analytics.to')}</span>
                 <input
                   type="date"
                   value={customRange.to}
@@ -151,7 +150,7 @@ export default function AnalyticsPage() {
         <LoadingBlock />
       ) : error ? (
         <div style={{ border: '1px solid #ffb4b4', background: '#ffecec', padding: '16px 18px', borderRadius: 12, color: '#9b1b1b' }}>
-          Failed to load analytics. Please refresh and try again.
+          {t('analytics.failed_load')}
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 20 }}>
@@ -162,8 +161,8 @@ export default function AnalyticsPage() {
               gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
             }}
           >
-            <KpiCard title="Events" value={analytics.totals.totalEvents} subtitle={`${analytics.totals.dayCount} day window`} />
-            <KpiCard title="Active categories" value={availableCount} subtitle="With data in range" />
+            <KpiCard title={t('analytics.total_events')} value={analytics.totals.totalEvents} subtitle={`${analytics.totals.dayCount} ${t('analytics.day_window')}`} />
+            <KpiCard title={t('analytics.active_categories')} value={availableCount} subtitle={t('analytics.with_data')} />
           </section>
 
           <CategoryTabs categories={CATEGORIES} active={activeCategory} onSelect={setActiveCategory} disabledKeys={disabledKeys} />
@@ -171,7 +170,7 @@ export default function AnalyticsPage() {
           {ActiveCategoryComponent && categoryAvailability[activeCategory] ? (
             <ActiveCategoryComponent data={analytics[activeCategory]} totals={analytics.totals} />
           ) : (
-            <EmptyState message="No data available for this category." />)
+            <EmptyState message={t('analytics.no_data')} />)
           }
         </div>
       )}
@@ -296,7 +295,7 @@ export default function AnalyticsPage() {
   );
 }
 
-function computeRange(rangeKey, customRange) {
+function computeRange(rangeKey, customRange, presets) {
   const now = new Date();
   const end = new Date(now);
   end.setHours(23, 59, 59, 999);
@@ -312,7 +311,7 @@ function computeRange(rangeKey, customRange) {
       toDisplay: toDate,
     };
   }
-  const preset = RANGE_PRESETS.find(opt => opt.key === rangeKey);
+  const preset = presets.find(opt => opt.key === rangeKey);
   const days = preset?.days ?? 7;
   const start = new Date(end);
   start.setDate(start.getDate() - (days - 1));
@@ -356,7 +355,8 @@ function LoadingBlock() {
 }
 
 function computeCategoryAvailability(analytics = {}) {
-  if (!analytics) return Object.fromEntries(CATEGORIES.map(cat => [cat.key, false]));
+  const keys = ['diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'];
+  if (!analytics) return Object.fromEntries(keys.map(k => [k, false]));
   return {
     diapering: Boolean(analytics.diapering?.total),
     feeding: Boolean((analytics.feeding?.totalFeeds || 0) > 0 || (analytics.feeding?.totalVolume || 0) > 0),
