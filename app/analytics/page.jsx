@@ -14,7 +14,7 @@ const CATEGORY_KEYS = [
 ];
 
 export default function AnalyticsPage() {
-  const { user, babies, selectedBabyId } = useBaby();
+  const { user, babies, selectedBabyId, role } = useBaby();
   const { t } = useLanguage();
   const [rangeKey, setRangeKey] = useState('7d');
   const [customRange, setCustomRange] = useState({ from: '', to: '' });
@@ -39,6 +39,7 @@ export default function AnalyticsPage() {
     babyId: selectedBaby?.id || null,
     from: range?.from || null,
     to: range?.to || null,
+    role,
   });
 
   const [isNarrow, setIsNarrow] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 480 : false));

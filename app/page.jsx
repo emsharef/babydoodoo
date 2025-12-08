@@ -170,7 +170,7 @@ function MetaInline({ ev, t }) {
 export default function LogPage() {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
-  const { user, babies, selectedBabyId, refreshBabies } = useBaby();
+  const { user, babies, selectedBabyId, refreshBabies, role } = useBaby();
   const { t } = useLanguage();
   const [events, setEvents] = useState([]);
   const [hoverId, setHoverId] = useState('');
@@ -245,6 +245,7 @@ export default function LogPage() {
   }, [buttonConfig, configLoaded]);
 
   async function logEvent(type) {
+    if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot create events.');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert(t('log.please_signin'));
     if (!selectedBaby) return alert(t('log.please_select_baby'));
@@ -305,6 +306,7 @@ export default function LogPage() {
   }
 
   async function deleteEvent(id) {
+    if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot delete events.');
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token; if (!token) return alert('Missing session token.');
     const res = await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
@@ -315,6 +317,7 @@ export default function LogPage() {
 
   async function saveMeta() {
     if (!editingEvent) return;
+    if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot edit events.');
     if (editingEvent.id === 'pending') return; // still awaiting creation
     const { data: { session } } = await supabase.auth.getSession();
     const token = session?.access_token; if (!token) return alert('Missing session token.');
@@ -343,7 +346,7 @@ export default function LogPage() {
     finally { setSending(false); }
   }
 
-  const showTrash = (id) => hoverId === id;
+  const showTrash = (id) => hoverId === id && role !== 'viewer';
   const onTouch = (id) => {
     setHoverId(id);
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
@@ -371,24 +374,28 @@ export default function LogPage() {
     </div>
   );
 
+  const visibleEvents = events.filter(ev => role !== 'viewer' || ev.event_type !== 'MyMood');
+
   return (
     <div style={{ display: 'grid', gap: 16 }}>
       <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12 }}>
         {!selectedBaby && <p style={{ color: '#888' }}>{t('log.no_baby')}</p>}
         {/* Avoid flash: if config not loaded and no cache, show a light skeleton instead of full grid */}
-        {(!configLoaded && EVENT_DEFS.length === 0) ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 10 }}>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} style={{ height: 72, borderRadius: 12, border: '1px solid #eee', background: '#f7f7f9', animation: 'pulse 1.2s ease-in-out infinite' }} />
-            ))}
-            <style jsx>{`@keyframes pulse { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }`}</style>
-          </div>
-        ) : grid}
+        {role !== 'viewer' && (
+          (!configLoaded && EVENT_DEFS.length === 0) ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 10 }}>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} style={{ height: 72, borderRadius: 12, border: '1px solid #eee', background: '#f7f7f9', animation: 'pulse 1.2s ease-in-out infinite' }} />
+              ))}
+              <style jsx>{`@keyframes pulse { 0%{opacity:.5} 50%{opacity:1} 100%{opacity:.5} }`}</style>
+            </div>
+          ) : grid
+        )}
         <div>
           <h3 style={{ margin: '12px 0 6px', fontFamily: 'Nunito, Inter, sans-serif' }}>{t('log.recent_events')}</h3>
-          {events.length === 0 ? <p>{t('log.no_events')}</p> : (
+          {visibleEvents.length === 0 ? <p>{t('log.no_events')}</p> : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {events.map(ev => {
+              {visibleEvents.map(ev => {
                 const notes = extractNotes(ev?.meta);
                 return (
                   <li
@@ -405,20 +412,22 @@ export default function LogPage() {
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <time style={{ whiteSpace: 'nowrap', color: '#666', fontSize: 13 }}>{new Date(ev.occurred_at).toLocaleString()}</time>
-                        <button
-                          aria-label="Delete"
-                          title="Delete"
-                          onClick={() => deleteEvent(ev.id)}
-                          style={{
-                            opacity: showTrash(ev.id) ? 1 : 0,
-                            transition: 'opacity .15s ease',
-                            padding: '6px 8px',
-                            borderRadius: 8,
-                            border: '1px solid #e5e5e5',
-                            background: '#fff',
-                            cursor: 'pointer'
-                          }}
-                        >🗑️</button>
+                        {role !== 'viewer' && (
+                          <button
+                            aria-label="Delete"
+                            title="Delete"
+                            onClick={() => deleteEvent(ev.id)}
+                            style={{
+                              opacity: showTrash(ev.id) ? 1 : 0,
+                              transition: 'opacity .15s ease',
+                              padding: '6px 8px',
+                              borderRadius: 8,
+                              border: '1px solid #e5e5e5',
+                              background: '#fff',
+                              cursor: 'pointer'
+                            }}
+                          >🗑️</button>
+                        )}
                       </div>
                     </div>
                     {notes ? <div style={{ color: '#555', fontSize: 13 }}>📝 {notes}</div> : null}

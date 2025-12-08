@@ -30,11 +30,14 @@ function Button({ children, onClick, style, type, disabled }) {
 
 export default function SharePage() {
   const router = useRouter();
-  const { user, babies, selectedBabyId, selectBaby, refreshBabies } = useBaby();
+  const { user, babies, selectedBabyId, selectBaby, refreshBabies, role } = useBaby();
   const { t } = useLanguage();
   const [memberships, setMemberships] = useState([]);
+  const [invites, setInvites] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('caregiver');
+
+
   const [babyInvites, setBabyInvites] = useState([]);
   const [myInvites, setMyInvites] = useState([]);
   const [newBabyName, setNewBabyName] = useState('');
@@ -48,7 +51,7 @@ export default function SharePage() {
     refreshBabies();
     refreshSharing(selectedBabyId);
     // Load my pending invites (visible via RLS)
-    supabase.from('invites').select('*').eq('status', 'pending').order('created_at', { ascending: false }).then(({ data }) => {
+    supabase.from('invites').select('*, babies(name)').eq('status', 'pending').order('created_at', { ascending: false }).then(({ data }) => {
       const me = (user.email || '').toLowerCase();
       setMyInvites((data || []).filter(i => (i.email || '').toLowerCase() === me));
     });
@@ -158,7 +161,7 @@ export default function SharePage() {
     }
   }
 
-  if (!user) return null;
+
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
   const myRole = useMemo(() => {
     if (!user || !selectedBaby) return null;
@@ -167,6 +170,7 @@ export default function SharePage() {
     return ownMembership?.role || null;
   }, [user, selectedBaby, memberships]);
   const canDelete = myRole === 'parent' || myRole === 'owner';
+  const canInvite = myRole === 'parent' || myRole === 'owner';
 
   useEffect(() => {
     setRenameValue(selectedBaby?.name || '');
@@ -189,6 +193,13 @@ export default function SharePage() {
     } finally {
       setRenaming(false);
     }
+  }
+
+  if (!user) return null;
+
+  if (role === 'viewer') {
+    router.replace('/');
+    return null;
   }
 
   return (
@@ -235,80 +246,89 @@ export default function SharePage() {
           )}
         </div>
 
-        <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-          <h3 style={{ margin: '12px 0 4px' }}>{t('share.invite_someone')}</h3>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder={t('share.invitee_email')} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', minWidth: 220 }} />
-            <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value)} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc' }}>
-              <option value="caregiver">{t('share.role_caregiver')}</option>
-              <option value="parent">{t('share.role_parent')}</option>
-            </select>
-            <Button onClick={inviteUser} style={{ background: '#c7f0d8', border: '1px solid #73c69c' }}>{t('share.invite')}</Button>
-          </div>
-        </div>
+        {canInvite && (
+          <>
+            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+              <h3 style={{ margin: '12px 0 4px' }}>{t('share.invite_someone')}</h3>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <input value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder={t('share.invitee_email')} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', minWidth: 220 }} />
+                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)} style={{ padding: 10, borderRadius: 8, border: '1px solid #ddd' }}>
+                  <option value="parent">{t('share.role_parent')}</option>
+                  <option value="caregiver">{t('share.role_caregiver')}</option>
+                  <option value="viewer">{t('share.role_viewer')}</option>
+                </select>
+                <Button onClick={inviteUser} style={{ background: '#c7f0d8', border: '1px solid #73c69c' }}>{t('share.invite')}</Button>
+              </div>
+            </div>
 
-        <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-          <h3 style={{ margin: '12px 0 4px' }}>{t('share.invites_for_baby')}</h3>
-          {babyInvites.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#666' }}>{t('share.no_invites')}</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
-              {babyInvites.map(inv => (
-                <li
-                  key={inv.id}
-                  style={{
-                    padding: '10px 12px',
-                    border: '1px solid #f0e3e3',
-                    borderRadius: 10,
-                    background: '#fffafa',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: 14
-                  }}
-                >
-                  <div><strong>{t(`share.role_${inv.role}`) || inv.role}</strong> — {inv.email} · <em>{inv.status}</em></div>
-                  {inv.status === 'pending' && (
-                    <button
-                      onClick={() => revokeInvite(inv.id)}
-                      style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e5e5', background: '#fff' }}
+            <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+              <h3 style={{ margin: '12px 0 4px' }}>{t('share.invites_for_baby')}</h3>
+              {babyInvites.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#666' }}>{t('share.no_invites')}</p>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+                  {babyInvites.map(inv => (
+                    <li
+                      key={inv.id}
+                      style={{
+                        padding: '10px 12px',
+                        border: '1px solid #f0e3e3',
+                        borderRadius: 10,
+                        background: '#fffafa',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        fontSize: 14
+                      }}
                     >
-                      {t('share.revoke')}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+                      <div><strong>{t(`share.role_${inv.role}`) || inv.role}</strong> — {inv.email} · <em>{inv.status}</em></div>
+                      {inv.status === 'pending' && (
+                        <button
+                          onClick={() => revokeInvite(inv.id)}
+                          style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid #e5e5e5', background: '#fff' }}
+                        >
+                          {t('share.revoke')}
+                        </button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
 
-        <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
-          <h3 style={{ margin: '12px 0 4px' }}>{t('share.your_pending')}</h3>
-          {myInvites.length === 0 ? (
-            <p style={{ fontSize: 13, color: '#666' }}>{t('share.none')}</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
-              {myInvites.map(inv => (
-                <li
-                  key={inv.id}
-                  style={{
-                    padding: '10px 12px',
-                    border: '1px solid #ece3c5',
-                    borderRadius: 10,
-                    background: '#fffaf0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    fontSize: 14
-                  }}
-                >
-                  <div><strong>{t(`share.role_${inv.role}`) || inv.role}</strong> — {inv.email} · <em>{inv.status}</em></div>
-                  <Button onClick={() => acceptInvite(inv.id)} style={{ background: '#fff3b0', border: '1px solid #f0d264' }}>{t('share.accept')}</Button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {(!selectedBaby || canInvite) && (
+          <div style={{ display: 'grid', gap: 8, marginTop: 8 }}>
+            <h3 style={{ margin: '12px 0 4px' }}>{t('share.your_pending')}</h3>
+            {myInvites.length === 0 ? (
+              <p style={{ fontSize: 13, color: '#666' }}>{t('share.none')}</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 6 }}>
+                {myInvites.map(inv => (
+                  <li
+                    key={inv.id}
+                    style={{
+                      padding: '10px 12px',
+                      border: '1px solid #ece3c5',
+                      borderRadius: 10,
+                      background: '#fffaf0',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      fontSize: 14
+                    }}
+                  >
+                    <div>
+                      <strong>{t(`share.role_${inv.role}`) || inv.role}</strong> — {inv.babies?.name || 'Baby'} ({inv.email}) · <em>{inv.status}</em>
+                    </div>
+                    <Button onClick={() => acceptInvite(inv.id)} style={{ background: '#fff3b0', border: '1px solid #f0d264' }}>{t('share.accept')}</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {canDelete && selectedBaby ? (
           <div style={{ marginTop: 12, padding: '14px 16px', border: '1px solid #e0e5ff', borderRadius: 12, background: '#f5f6ff', display: 'grid', gap: 10 }}>

@@ -12,7 +12,7 @@ export default function NavBar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
   const [isNarrow, setIsNarrow] = useState(false);
-  const { babies, selectedBabyId, selectBaby } = useBaby();
+  const { babies, selectedBabyId, selectBaby, role } = useBaby();
   const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
@@ -67,9 +67,13 @@ export default function NavBar() {
       <div style={{ display: 'flex', gap: isNarrow ? 4 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
         <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
         <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
-        <IconLink href="/tools" Icon={IconTools} isNarrow={isNarrow} />
-        <IconLink href="/share" Icon={IconUsersGroup} isNarrow={isNarrow} />
-        <IconLink href="/settings" Icon={IconSettings} isNarrow={isNarrow} />
+        {role !== 'viewer' && (
+          <>
+            <IconLink href="/tools" Icon={IconTools} isNarrow={isNarrow} />
+            <IconLink href="/share" Icon={IconUsersGroup} isNarrow={isNarrow} />
+            <IconLink href="/settings" Icon={IconSettings} isNarrow={isNarrow} />
+          </>
+        )}
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
         <select id="babySelectTop" value={selectedBabyId} onChange={(e) => selectBaby(e.target.value)} style={{ padding: isNarrow ? '6px 8px' : '8px 10px', borderRadius: 10, border: '1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>

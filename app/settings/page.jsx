@@ -30,14 +30,14 @@ function Row({ i, total, item, def, onToggle, onMove, disabled, t }) {
 }
 
 export default function SettingsPage() {
-  const { user, babies, selectedBabyId } = useBaby();
+  const { user, babies, selectedBabyId, refreshBabies, role } = useBaby();
   const { t } = useLanguage();
-  const [role, setRole] = useState(null); // 'parent' | 'caregiver' | 'owner'
   const [baby, setBaby] = useState(null);
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+
 
   const canEdit = role === 'parent' || role === 'owner';
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
@@ -51,14 +51,9 @@ export default function SettingsPage() {
       if (cancelled) return;
       if (babyErr) { console.error('load baby error', babyErr); setLoading(false); return; }
       setBaby(babyRow);
-      // Determine role: owner or membership role for THIS user
-      if (babyRow.user_id === user.id) {
-        setRole('owner');
-      } else {
-        const { data: ms, error: mErr } = await supabase.from('memberships').select('role').eq('baby_id', selectedBaby.id).eq('user_id', user.id).maybeSingle();
-        if (mErr) { console.error('load role error', mErr); }
-        setRole(ms?.role || null);
-      }
+      setBaby(babyRow);
+      // Role is now provided by useBaby context
+
       const cfg = (babyRow.button_config && Array.isArray(babyRow.button_config.items)) ? babyRow.button_config : makeDefaultButtonConfig();
       // Use EVENT_DEFS as single source of truth for known types
       const knownTypes = new Set(EVENT_DEFS.map(d => d.type));
@@ -117,6 +112,10 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  if (role === 'viewer') {
+    return <div style={{ padding: 24 }}><h2>{t('share.viewer_no_access') || 'Access Denied'}</h2><p>{t('share.viewer_desc') || 'Viewers cannot access this page.'}</p></div>;
   }
 
   return (

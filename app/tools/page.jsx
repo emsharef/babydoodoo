@@ -157,8 +157,10 @@ function ContractionChart({ events, t }) {
 }
 
 export default function ToolsPage() {
-    const { user, babies, selectedBabyId } = useBaby();
+    const { user, babies, selectedBabyId, role } = useBaby();
     const { t } = useLanguage();
+
+
     const [activeTab, setActiveTab] = useState('kick'); // 'kick' or 'contraction'
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -392,6 +394,10 @@ export default function ToolsPage() {
         );
     }, [events, t]);
 
+
+    if (role === 'viewer') {
+        return <div style={{ padding: 24 }}><h2>{t('share.viewer_no_access') || 'Access Denied'}</h2><p>{t('share.viewer_desc') || 'Viewers cannot access this page.'}</p></div>;
+    }
 
     return (
         <div style={{ display: 'grid', gap: 16 }}>
