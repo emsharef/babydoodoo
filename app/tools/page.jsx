@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '@/lib/supabaseClient';
 import { useBaby } from '@/components/BabyContext';
+import { useLanguage } from '@/components/LanguageContext';
 import IconButton from '@/components/IconButton';
 import BottomSheet from '@/components/BottomSheet';
 import * as echarts from 'echarts';
@@ -54,7 +55,7 @@ function QuickButtons({ values, activeValue, onSelect, format }) {
     );
 }
 
-function ContractionChart({ events }) {
+function ContractionChart({ events, t }) {
     const chartRef = useRef(null);
     const containerRef = useRef(null);
 
@@ -78,24 +79,11 @@ function ContractionChart({ events }) {
 
         const data = [];
 
-        // Add a starting point at 2 hours ago if needed, or just let the chart handle it
-        // We want a "square wave".
-        // For each contraction:
-        // [Start, 0] -> [Start, Intensity] -> [End, Intensity] -> [End, 0]
-
         recentEvents.forEach(e => {
             const start = new Date(e.occurred_at);
             const durationSec = e.meta?.contraction?.duration_sec || 0;
             const end = new Date(start.getTime() + durationSec * 1000);
             const intensity = e.meta?.contraction?.intensity || 0;
-
-            // Push points
-            // To make it look like a square wave, we need to ensure we drop to 0 before this one if there was a gap
-            // But since we just push points, ECharts line will connect them.
-            // We need explicit 0 points.
-
-            // Point before start (at 0) - slightly before start to create vertical rise?
-            // Actually, if we just put [Start, 0] and [Start, Intensity], it will draw a vertical line.
 
             data.push([start.getTime(), 0]);
             data.push([start.getTime(), intensity]);
@@ -103,7 +91,6 @@ function ContractionChart({ events }) {
             data.push([end.getTime(), 0]);
         });
 
-        // Add a point at "now" to keep the chart extending to the right edge
         if (data.length > 0) {
             data.push([now.getTime(), 0]);
         }
@@ -115,7 +102,7 @@ function ContractionChart({ events }) {
                     const p = params[0];
                     if (!p) return '';
                     const date = new Date(p.value[0]);
-                    return `${date.toLocaleTimeString()}<br/>Intensity: ${p.value[1]}`;
+                    return `${date.toLocaleTimeString()}<br/>${t('tools.intensity')}: ${p.value[1]}`;
                 }
             },
             grid: {
@@ -141,15 +128,9 @@ function ContractionChart({ events }) {
             },
             series: [
                 {
-                    name: 'Intensity',
+                    name: t('tools.intensity'),
                     type: 'line',
-                    step: 'end', // or 'start' or 'middle'? 
-                    // Actually, if we provide explicit points for the square shape ([t1,0], [t1,v], [t2,v], [t2,0]), 
-                    // we don't need 'step'. 'step' is for when you only have one point per value change.
-                    // But ECharts might not like two points with exact same X for a line chart (it might average them or sort them).
-                    // Let's try standard line with our explicit points. 
-                    // If ECharts sorts stable, [t, 0] then [t, v] draws vertical up.
-                    // Let's assume it works. If not, we can add a tiny epsilon.
+                    step: 'end',
                     data: data,
                     areaStyle: {
                         opacity: 0.2
@@ -169,15 +150,15 @@ function ContractionChart({ events }) {
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            // chart.dispose(); // React strict mode might cause issues if we dispose too early, but usually good practice.
         };
-    }, [events]);
+    }, [events, t]);
 
     return <div ref={containerRef} style={{ width: '100%', height: 200 }} />;
 }
 
 export default function ToolsPage() {
     const { user, babies, selectedBabyId } = useBaby();
+    const { t } = useLanguage();
     const [activeTab, setActiveTab] = useState('kick'); // 'kick' or 'contraction'
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -231,7 +212,7 @@ export default function ToolsPage() {
             .eq('baby_id', selectedBabyId)
             .eq('event_type', type)
             .order('occurred_at', { ascending: false })
-            .limit(100); // Increased limit for better history
+            .limit(100);
 
         if (error) console.error('Error fetching events:', error);
         else setEvents(data || []);
@@ -239,8 +220,8 @@ export default function ToolsPage() {
     }
 
     async function logEvent(type, meta = {}) {
-        if (!user) return alert('Please sign in first.');
-        if (!selectedBabyId) return alert('Please select a baby first.');
+        if (!user) return alert(t('log.please_signin'));
+        if (!selectedBabyId) return alert(t('log.please_select_baby'));
 
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token;
@@ -277,7 +258,7 @@ export default function ToolsPage() {
             }
         } catch (err) {
             console.error(err);
-            alert('Failed to save event.');
+            alert(t('log.failed_save'));
             if (type !== 'Contraction') {
                 setEvents(prev => prev.filter(e => e.id !== 'pending'));
             }
@@ -300,7 +281,7 @@ export default function ToolsPage() {
         const res = await fetch(`/api/events/${editingEvent.id}`, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` }, body: JSON.stringify(payload) });
         setSheetLoading(false);
 
-        if (!res.ok) { console.error('updateEvent error', await res.json().catch(() => ({}))); alert('Failed to save.'); return; }
+        if (!res.ok) { console.error('updateEvent error', await res.json().catch(() => ({}))); alert(t('log.failed_save')); return; }
         const { event } = await res.json();
         setEvents(prev => [event, ...prev.filter(e => e.id !== 'pending' && e.id !== event.id)].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at)));
         setSheetOpen(false); setEditingEvent(null);
@@ -311,7 +292,7 @@ export default function ToolsPage() {
         const { data: { session } } = await supabase.auth.getSession();
         const token = session?.access_token; if (!token) return alert('Missing session token.');
         const res = await fetch(`/api/events/${id}`, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
-        if (!res.ok && res.status !== 204) { console.error('deleteEvent error', await res.json().catch(() => ({}))); alert('Failed to delete event.'); return; }
+        if (!res.ok && res.status !== 204) { console.error('deleteEvent error', await res.json().catch(() => ({}))); alert(t('log.failed_delete')); return; }
         setEvents(prev => prev.filter(e => e.id !== id));
         if (editingEvent?.id === id) { setSheetOpen(false); setEditingEvent(null); }
     }
@@ -343,12 +324,7 @@ export default function ToolsPage() {
     const rule511Status = useMemo(() => {
         if (events.length < 2) return null;
 
-        // Sort events descending (newest first)
         const sorted = [...events].sort((a, b) => new Date(b.occurred_at) - new Date(a.occurred_at));
-
-        // Trace back the "wave"
-        // A wave is a sequence of contractions where the gap between consecutive events is <= 10 minutes.
-        // We start from the most recent event.
 
         const wave = [];
         if (sorted.length > 0) {
@@ -361,30 +337,24 @@ export default function ToolsPage() {
                 if (diffMin <= 10) {
                     wave.push(sorted[i + 1]);
                 } else {
-                    break; // Gap > 10 mins, wave broken
+                    break;
                 }
             }
         }
 
         if (wave.length < 2) return (
             <div style={{ fontSize: 13, background: '#f9f9f9', padding: 10, borderRadius: 8, border: '1px solid #eee', color: '#666' }}>
-                Not enough recent data for 5-1-1 check.
+                {t('tools.rule_check')}: Not enough recent data.
             </div>
         );
 
-        // Analyze the wave
         const waveStart = new Date(wave[wave.length - 1].occurred_at);
         const waveEnd = new Date(wave[0].occurred_at);
         const waveDurationMin = (waveEnd - waveStart) / 60000;
 
-        // Calculate stats for the wave (or just the last hour of it, but usually we care about the whole active phase)
-        // Let's calculate stats for the events in the wave that are within the last hour, 
-        // BUT the consistency check (1 hour duration) applies to the whole wave.
-
         const now = new Date();
         const oneHourAgo = new Date(now - 60 * 60 * 1000);
 
-        // Events in the wave that happened in the last hour (for frequency/duration calc)
         const recentInWave = wave.filter(e => new Date(e.occurred_at) > oneHourAgo);
 
         let avgFreqMin = 0;
@@ -402,25 +372,25 @@ export default function ToolsPage() {
         }
 
         const freqCheck = (avgFreqMin > 0 && avgFreqMin <= 5) ? "✅" : "❌";
-        const durCheck = avgDurSec >= 45 ? "✅" : "❌"; // relaxed slightly to 45s, or strict 60? User said "approx 1 min". Let's say >= 45s is close.
+        const durCheck = avgDurSec >= 45 ? "✅" : "❌";
         const consistencyCheck = waveDurationMin >= 60 ? "✅" : "⚠️";
 
         return (
             <div style={{ fontSize: 13, background: '#f0f9ff', padding: 10, borderRadius: 8, border: '1px solid #bae6fd' }}>
-                <strong>5-1-1 Rule Check:</strong>
+                <strong>{t('tools.rule_check')}:</strong>
                 <ul style={{ paddingLeft: 20, margin: '4px 0 0' }}>
-                    <li>Frequency (~5 min apart): {freqCheck} ({avgFreqMin || '?'} min avg)</li>
-                    <li>Duration (~1 min long): {durCheck} ({avgDurSec} sec avg)</li>
-                    <li>Consistency (1 hr long): {consistencyCheck} (Active for {Math.round(waveDurationMin)} min)</li>
+                    <li>{t('tools.frequency')}: {freqCheck} ({avgFreqMin || '?'} min avg)</li>
+                    <li>{t('tools.duration')}: {durCheck} ({avgDurSec} sec avg)</li>
+                    <li>{t('tools.consistency')}: {consistencyCheck} ({Math.round(waveDurationMin)} min)</li>
                 </ul>
                 {waveDurationMin < 60 && (
                     <div style={{ marginTop: 6, fontSize: 12, color: '#666' }}>
-                        * Wave started {new Date(waveStart).toLocaleTimeString()} (gap &lt; 10m)
+                        * {t('tools.wave_started')} {new Date(waveStart).toLocaleTimeString()}
                     </div>
                 )}
             </div>
         );
-    }, [events]);
+    }, [events, t]);
 
 
     return (
@@ -438,7 +408,7 @@ export default function ToolsPage() {
                         cursor: 'pointer'
                     }}
                 >
-                    🦶 Kick Counter
+                    🦶 {t('tools.kick_counter')}
                 </button>
                 <button
                     onClick={() => setActiveTab('contraction')}
@@ -452,7 +422,7 @@ export default function ToolsPage() {
                         cursor: 'pointer'
                     }}
                 >
-                    ⏱️ Contractions
+                    ⏱️ {t('tools.contractions')}
                 </button>
             </div>
 
@@ -471,17 +441,17 @@ export default function ToolsPage() {
                             🦶
                         </button>
                         <div style={{ marginTop: 16, fontSize: 14, color: '#666' }}>
-                            Tap to record a kick
+                            {t('tools.tap_kick')}
                         </div>
                         {last10KicksTime && (
                             <div style={{ marginTop: 12, padding: '8px 12px', background: '#f5f5f5', borderRadius: 8, display: 'inline-block' }}>
-                                <strong>Time for last 10 kicks:</strong> {last10KicksTime}
+                                <strong>{t('tools.last_10_kicks')}:</strong> {last10KicksTime}
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <h3>Recent Kicks</h3>
+                        <h3>{t('tools.recent_kicks')}</h3>
                         <ul style={{ listStyle: 'none', padding: 0 }}>
                             {events.map(e => (
                                 <li key={e.id} style={{ padding: '8px 0', borderBottom: '1px solid #eee', display: 'flex', justifyContent: 'space-between' }}>
@@ -510,7 +480,7 @@ export default function ToolsPage() {
                                     cursor: 'pointer', boxShadow: '0 4px 12px rgba(76, 175, 80, 0.3)'
                                 }}
                             >
-                                Start Contraction
+                                {t('tools.start_contraction')}
                             </button>
                         ) : (
                             <button
@@ -522,7 +492,7 @@ export default function ToolsPage() {
                                     cursor: 'pointer', boxShadow: '0 4px 12px rgba(229, 57, 53, 0.3)'
                                 }}
                             >
-                                Stop & Save
+                                {t('tools.stop_save')}
                             </button>
                         )}
                     </div>
@@ -530,12 +500,12 @@ export default function ToolsPage() {
                     {rule511Status}
 
                     <div style={{ background: '#fff', padding: 12, borderRadius: 16, border: '1px solid #eee' }}>
-                        <h3 style={{ margin: '0 0 12px' }}>Last 2 Hours</h3>
-                        <ContractionChart events={events} />
+                        <h3 style={{ margin: '0 0 12px' }}>{t('tools.last_2_hours')}</h3>
+                        <ContractionChart events={events} t={t} />
                     </div>
 
                     <div>
-                        <h3>Recent Contractions</h3>
+                        <h3>{t('tools.recent_contractions')}</h3>
                         <ul style={{ listStyle: 'none', padding: 0 }}>
                             {events.map(e => (
                                 <li key={e.id} style={{ padding: '12px', borderBottom: '1px solid #eee', background: '#fff', borderRadius: 8, marginBottom: 8 }}>
@@ -544,7 +514,7 @@ export default function ToolsPage() {
                                         <span>{e.meta?.contraction?.duration_sec}s</span>
                                     </div>
                                     <div style={{ fontSize: 13, color: '#666' }}>
-                                        Intensity: {e.meta?.contraction?.intensity}/10
+                                        {t('tools.intensity')}: {e.meta?.contraction?.intensity}/10
                                     </div>
                                 </li>
                             ))}
@@ -555,9 +525,9 @@ export default function ToolsPage() {
 
             <BottomSheet open={sheetOpen} onClose={() => { setSheetOpen(false); setEditingEvent(null); }} autoHideMs={null}>
                 <div style={{ display: 'grid', gap: 10 }}>
-                    <strong style={{ fontFamily: 'Nunito, Inter, sans-serif' }}>Contraction Details</strong>
+                    <strong style={{ fontFamily: 'Nunito, Inter, sans-serif' }}>{t('tools.details')}</strong>
 
-                    <label>Intensity (1–10)
+                    <label>{t('tools.intensity')} (1–10)
                         <input type="number" min="1" max="10" value={metaDraft?.contraction?.intensity || 5} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), intensity: Number(e.target.value || 5) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
                     </label>
                     <QuickButtons
@@ -565,7 +535,7 @@ export default function ToolsPage() {
                         activeValue={metaDraft?.contraction?.intensity}
                         onSelect={(val) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), intensity: val } }))}
                     />
-                    <label>Duration (sec)
+                    <label>{t('tools.duration')} (sec)
                         <input type="number" min="0" value={metaDraft?.contraction?.duration_sec || 30} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), duration_sec: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
                     </label>
                     <QuickButtons
@@ -576,7 +546,7 @@ export default function ToolsPage() {
                     />
 
                     <label style={{ display: 'grid', gap: 6 }}>
-                        <span>Notes (optional)</span>
+                        <span>{t('tools.notes')}</span>
                         <input
                             value={metaDraft?.notes || ''}
                             onChange={(e) => setMetaDraft(prev => ({ ...prev, notes: e.target.value }))}
@@ -586,7 +556,7 @@ export default function ToolsPage() {
                     </label>
 
                     <label style={{ display: 'grid', gap: 6 }}>
-                        <span>Timestamp</span>
+                        <span>{t('tools.timestamp')}</span>
                         <input
                             type="datetime-local"
                             value={overrideTimestamp}
@@ -601,14 +571,14 @@ export default function ToolsPage() {
                             disabled={sheetLoading || editingEvent?.id === 'pending'}
                             style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #ff9c9c', background: '#ffd4d4', fontWeight: 700, opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer' }}
                         >
-                            Delete
+                            {t('tools.delete')}
                         </button>
                         <button
                             onClick={saveMeta}
                             disabled={sheetLoading || editingEvent?.id === 'pending'}
                             style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #73c69c', background: '#c7f0d8', fontWeight: 700, opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer' }}
                         >
-                            {sheetLoading ? 'Saving…' : 'Save'}
+                            {sheetLoading ? t('tools.saving') : t('tools.save')}
                         </button>
                     </div>
                 </div>

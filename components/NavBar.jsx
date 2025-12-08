@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { IconNotebook, IconChartBar, IconUsersGroup, IconSettings, IconUserCircle, IconTools } from '@tabler/icons-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useBaby } from './BabyContext';
+import { useLanguage } from './LanguageContext';
 
 export default function NavBar() {
   const [user, setUser] = useState(null);
@@ -12,6 +13,8 @@ export default function NavBar() {
   const menuRef = useRef(null);
   const [isNarrow, setIsNarrow] = useState(false);
   const { babies, selectedBabyId, selectBaby } = useBaby();
+  const { language, setLanguage, t } = useLanguage();
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data: { user } }) => setUser(user || null));
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => setUser(session?.user ?? null));
@@ -70,7 +73,7 @@ export default function NavBar() {
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
         <select id="babySelectTop" value={selectedBabyId} onChange={(e) => selectBaby(e.target.value)} style={{ padding: isNarrow ? '6px 8px' : '8px 10px', borderRadius: 10, border: '1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>
-          <option value="" disabled>Select...</option>
+          <option value="" disabled>{t('nav.select_baby')}</option>
           {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
@@ -110,7 +113,40 @@ export default function NavBar() {
               zIndex: 40,
             }}
           >
-            <div style={{ fontSize: 13, color: '#444', wordBreak: 'break-all' }}>{user.email || 'Signed in'}</div>
+            <div style={{ fontSize: 13, color: '#444', wordBreak: 'break-all' }}>{user.email || t('nav.signed_in')}</div>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
+              <span>{t('nav.language')}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                <button
+                  onClick={() => setLanguage('en')}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: language === 'en' ? '1px solid #4f7cff' : '1px solid #eee',
+                    background: language === 'en' ? '#e6edff' : '#fff',
+                    color: language === 'en' ? '#4f7cff' : '#666',
+                    cursor: 'pointer'
+                  }}
+                >
+                  EN
+                </button>
+                <button
+                  onClick={() => setLanguage('zh')}
+                  style={{
+                    padding: '4px 8px',
+                    borderRadius: 6,
+                    border: language === 'zh' ? '1px solid #4f7cff' : '1px solid #eee',
+                    background: language === 'zh' ? '#e6edff' : '#fff',
+                    color: language === 'zh' ? '#4f7cff' : '#666',
+                    cursor: 'pointer'
+                  }}
+                >
+                  中文
+                </button>
+              </div>
+            </div>
+
             <button
               type="button"
               onClick={handleSignOut}
@@ -125,7 +161,7 @@ export default function NavBar() {
                 cursor: signingOut ? 'wait' : 'pointer',
               }}
             >
-              {signingOut ? 'Signing out…' : 'Sign out'}
+              {signingOut ? t('nav.signing_out') : t('nav.sign_out')}
             </button>
           </div>
         )}
