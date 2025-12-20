@@ -494,7 +494,7 @@ export default function LogPage() {
               </div>
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>{t('field.quantity')}</span>
-                <input type="number" min="0" value={metaDraft?.yum?.quantity || 0} onChange={(e) => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), quantity: Number(e.target.value || 0) } }))} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
+                <input type="number" min="0" value={metaDraft?.yum?.quantity ?? 0} onChange={(e) => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), quantity: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
                 <span style={{ color: '#666' }}>ml</span>
               </label>
               <QuickButtons
@@ -517,7 +517,7 @@ export default function LogPage() {
           {activeType === 'KickMe' && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <label>{t('field.count')}
-                <input type="number" min="1" value={metaDraft?.kick?.count || 1} onChange={(e) => setMetaDraft(prev => ({ ...prev, kick: { ...(prev.kick || {}), count: Number(e.target.value || 1) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 100 }} />
+                <input type="number" min="1" value={metaDraft?.kick?.count ?? 1} onChange={(e) => setMetaDraft(prev => ({ ...prev, kick: { ...(prev.kick || {}), count: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 100 }} />
               </label>
               <QuickButtons
                 values={[1, 2, 3, 5, 8]}
@@ -535,7 +535,7 @@ export default function LogPage() {
           {activeType === 'Contraction' && (
             <div style={{ display: 'grid', gap: 10 }}>
               <label>{t('tools.intensity')} (1–10)
-                <input type="number" min="1" max="10" value={metaDraft?.contraction?.intensity || 5} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), intensity: Number(e.target.value || 5) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
+                <input type="number" min="1" max="10" value={metaDraft?.contraction?.intensity ?? 5} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), intensity: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
               </label>
               <QuickButtons
                 values={[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]}
@@ -543,7 +543,7 @@ export default function LogPage() {
                 onSelect={(val) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), intensity: val } }))}
               />
               <label>{t('tools.duration')} (sec)
-                <input type="number" min="0" value={metaDraft?.contraction?.duration_sec || 30} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), duration_sec: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
+                <input type="number" min="0" value={metaDraft?.contraction?.duration_sec ?? 30} onChange={(e) => setMetaDraft(prev => ({ ...prev, contraction: { ...(prev.contraction || {}), duration_sec: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
               </label>
               <QuickButtons
                 values={[30, 45, 60, 90, 120]}
@@ -557,7 +557,7 @@ export default function LogPage() {
           {activeType === 'Temperature' && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <label>{t('field.value')}
-                <input type="number" step="0.1" value={metaDraft?.temp?.value ?? 98.6} onChange={(e) => setMetaDraft(prev => ({ ...prev, temp: { ...(prev.temp || { unit: 'F' }), value: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
+                <input type="number" step="0.1" value={metaDraft?.temp?.value ?? 98.6} onChange={(e) => setMetaDraft(prev => ({ ...prev, temp: { ...(prev.temp || { unit: 'F' }), value: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
               </label>
               <div style={{ display: 'flex', gap: 8 }}>
                 <Pill active={(metaDraft?.temp?.unit || 'F') === 'F'} onClick={() => setMetaDraft(prev => ({ ...prev, temp: { ...(prev.temp || {}), unit: 'F' } }))}>°F</Pill>
@@ -579,7 +579,7 @@ export default function LogPage() {
               </label>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <label>{t('field.dose')}
-                  <input type="number" step="0.1" min="0" value={metaDraft?.medicine?.dose ?? 0} onChange={(e) => setMetaDraft(prev => ({ ...prev, medicine: { ...(prev.medicine || {}), dose: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
+                  <input type="number" step="0.1" min="0" value={metaDraft?.medicine?.dose ?? 0} onChange={(e) => setMetaDraft(prev => ({ ...prev, medicine: { ...(prev.medicine || {}), dose: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120 }} />
                 </label>
                 <QuickButtons
                   values={[0.5, 1, 2.5, 5, 7.5]}
@@ -616,7 +616,7 @@ export default function LogPage() {
           {activeType === 'Heartbeat' && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <label>{t('field.bpm')}
-                <input type="number" min="0" value={metaDraft?.heartbeat?.bpm ?? 140} onChange={(e) => setMetaDraft(prev => ({ ...prev, heartbeat: { ...(prev.heartbeat || {}), bpm: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 140 }} />
+                <input type="number" min="0" value={metaDraft?.heartbeat?.bpm ?? 140} onChange={(e) => setMetaDraft(prev => ({ ...prev, heartbeat: { ...(prev.heartbeat || {}), bpm: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 140 }} />
               </label>
               <QuickButtons
                 values={[110, 120, 130, 140, 150]}
@@ -635,7 +635,7 @@ export default function LogPage() {
                 ))}
               </div>
               <label>{t('field.duration')} (min)
-                <input type="number" min="0" value={metaDraft?.play?.duration_min ?? 10} onChange={(e) => setMetaDraft(prev => ({ ...prev, play: { ...(prev.play || {}), duration_min: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
+                <input type="number" min="0" value={metaDraft?.play?.duration_min ?? 10} onChange={(e) => setMetaDraft(prev => ({ ...prev, play: { ...(prev.play || {}), duration_min: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
               </label>
               <QuickButtons
                 values={[10, 15, 20, 30, 45]}
@@ -667,7 +667,7 @@ export default function LogPage() {
                 ))}
               </div>
               <label>{t('field.value')} (inches)
-                <input type="number" step="0.1" min="0" value={metaDraft?.measure?.inches ?? 20} onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
+                <input type="number" step="0.1" min="0" value={metaDraft?.measure?.inches ?? 20} onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
               </label>
               <QuickButtons
                 values={
@@ -699,7 +699,7 @@ export default function LogPage() {
           {activeType === 'SleepEnd' && (
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <label>{t('field.duration')} (min)
-                <input type="number" min="0" value={metaDraft?.sleep?.duration_min ?? 60} onChange={(e) => setMetaDraft(prev => ({ ...prev, sleep: { ...(prev.sleep || {}), duration_min: Number(e.target.value || 0) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 140 }} />
+                <input type="number" min="0" value={metaDraft?.sleep?.duration_min ?? 60} onChange={(e) => setMetaDraft(prev => ({ ...prev, sleep: { ...(prev.sleep || {}), duration_min: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 140 }} />
               </label>
               <QuickButtons
                 values={[30, 45, 60, 90, 120]}
