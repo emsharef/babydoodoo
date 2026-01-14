@@ -143,7 +143,13 @@ function MetaInline({ ev, t }) {
   }
   if (ev.event_type === 'Measure' && m.measure) {
     const kind = t(`val.${m.measure.kind}`) || m.measure.kind;
-    if (m.measure.inches !== undefined) chips.push(<Chip key="meas"><span>📏</span><span>{kind}</span><span>{m.measure.inches} in</span></Chip>);
+    if (m.measure.inches !== undefined) {
+      chips.push(<Chip key="meas"><span>📏</span><span>{kind}</span><span>{m.measure.inches} in</span></Chip>);
+    } else if (m.measure.lb !== undefined || m.measure.oz !== undefined) {
+      const lb = m.measure.lb || 0;
+      const oz = m.measure.oz || 0;
+      chips.push(<Chip key="meas"><span>⚖️</span><span>{kind}</span><span>{lb}lb {oz}oz</span></Chip>);
+    }
   }
   if (ev.event_type === 'Puke' && m.puke) {
     const a = m.puke.amount;
@@ -662,27 +668,51 @@ export default function LogPage() {
           {activeType === 'Measure' && (
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {[{ k: 'baby_length', label: 'Baby Length' }, { k: 'head_circumference', label: 'Head Circumference' }, { k: 'mom_belly', label: 'Mom Belly' }, { k: 'mom_waist', label: 'Mom Waist' }].map(opt => (
+                {[{ k: 'baby_length', label: 'Baby Length' }, { k: 'head_circumference', label: 'Head Circumference' }, { k: 'baby_weight', label: 'Baby Weight' }, { k: 'mom_weight', label: 'Mom Weight' }, { k: 'mom_belly', label: 'Mom Belly' }, { k: 'mom_waist', label: 'Mom Waist' }].map(opt => (
                   <Pill key={opt.k} active={metaDraft?.measure?.kind === opt.k} onClick={() => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), kind: opt.k } }))}>{t(`val.${opt.k}`)}</Pill>
                 ))}
               </div>
-              <label>{t('field.value')} (inches)
-                <input type="number" step="0.1" min="0" value={metaDraft?.measure?.inches ?? 20} onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
-              </label>
-              <QuickButtons
-                values={
-                  metaDraft?.measure?.kind === 'head_circumference'
-                    ? [13, 14, 15, 16, 17]
-                    : metaDraft?.measure?.kind === 'mom_belly'
-                      ? [30, 32, 34, 36, 38]
-                      : metaDraft?.measure?.kind === 'mom_waist'
-                        ? [28, 30, 32, 34, 36]
-                        : [18, 20, 22, 24, 26]
-                }
-                activeValue={metaDraft?.measure?.inches}
-                onSelect={(val) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: val } }))}
-                format={(val) => `${val}"`}
-              />
+
+              {(metaDraft?.measure?.kind === 'baby_weight' || metaDraft?.measure?.kind === 'mom_weight') ? (
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <label>{t('val.lbs') || 'Lbs'}
+                    <input
+                      type="number" min="0"
+                      value={metaDraft?.measure?.lb ?? 0}
+                      onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), lb: e.target.value === '' ? '' : Number(e.target.value) } }))}
+                      style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 80 }}
+                    />
+                  </label>
+                  <label>{t('val.oz') || 'Oz'}
+                    <input
+                      type="number" min="0" max="16"
+                      value={metaDraft?.measure?.oz ?? 0}
+                      onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), oz: e.target.value === '' ? '' : Number(e.target.value) } }))}
+                      style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 80 }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <>
+                  <label>{t('field.value')} (inches)
+                    <input type="number" step="0.1" min="0" value={metaDraft?.measure?.inches ?? 20} onChange={(e) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ marginLeft: 8, padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 160 }} />
+                  </label>
+                  <QuickButtons
+                    values={
+                      metaDraft?.measure?.kind === 'head_circumference'
+                        ? [13, 14, 15, 16, 17]
+                        : metaDraft?.measure?.kind === 'mom_belly'
+                          ? [30, 32, 34, 36, 38]
+                          : metaDraft?.measure?.kind === 'mom_waist'
+                            ? [28, 30, 32, 34, 36]
+                            : [18, 20, 22, 24, 26]
+                    }
+                    activeValue={metaDraft?.measure?.inches}
+                    onSelect={(val) => setMetaDraft(prev => ({ ...prev, measure: { ...(prev.measure || {}), inches: val } }))}
+                    format={(val) => `${val}"`}
+                  />
+                </>
+              )}
             </div>
           )}
 
