@@ -6,6 +6,7 @@ import { useLanguage } from '@/components/LanguageContext';
 import BottomSheet from '@/components/BottomSheet';
 import IconButton from '@/components/IconButton';
 import { EVENT_DEFS as BASE_EVENT_DEFS, applyButtonConfig } from '@/lib/events';
+import { IconFilter } from '@tabler/icons-react';
 
 function toDateTimeLocalString(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -187,6 +188,10 @@ export default function LogPage() {
   const [hasMore, setHasMore] = useState(true);
   const sentinelRef = useRef(null);
 
+  // Filter state
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterType, setFilterType] = useState(null);
+
   // Bottom sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState(null); // full event row
@@ -227,6 +232,9 @@ export default function LogPage() {
       setConfigLoaded(true);
       setHasMore(true);
     }
+    // Reset filter when baby changes
+    setFilterType(null);
+    setShowFilters(false);
   }, [selectedBabyId]);
 
   async function fetchButtonConfig(babyId) {
@@ -283,6 +291,12 @@ export default function LogPage() {
     if (!configLoaded) return [];
     return applyButtonConfig(BASE_EVENT_DEFS, buttonConfig);
   }, [buttonConfig, configLoaded]);
+
+  // Get unique event types from loaded events for filter chips
+  const eventTypesInList = useMemo(() => {
+    const types = new Set(events.map(ev => ev.event_type));
+    return Array.from(types);
+  }, [events]);
 
   // Infinite scroll observer
   useEffect(() => {
@@ -431,7 +445,13 @@ export default function LogPage() {
     </div>
   );
 
-  const visibleEvents = events.filter(ev => role !== 'viewer' || ev.event_type !== 'MyMood');
+  const visibleEvents = events.filter(ev => {
+    // Hide MyMood from viewers
+    if (role === 'viewer' && ev.event_type === 'MyMood') return false;
+    // Apply type filter if set
+    if (filterType && ev.event_type !== filterType) return false;
+    return true;
+  });
 
   return (
     <div style={{ display: 'grid', gap: 16 }}>
@@ -449,7 +469,61 @@ export default function LogPage() {
           ) : grid
         )}
         <div>
-          <h3 style={{ margin: '12px 0 6px', fontFamily: 'Nunito, Inter, sans-serif' }}>{t('log.recent_events')}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 6px' }}>
+            <h3 style={{ margin: 0, fontFamily: 'Nunito, Inter, sans-serif' }}>{t('log.recent_events')}</h3>
+            <button
+              onClick={() => setShowFilters(prev => !prev)}
+              style={{
+                padding: '6px 8px',
+                borderRadius: 8,
+                border: '1px solid #e5e5e5',
+                background: showFilters || filterType ? '#e6edff' : '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4
+              }}
+              title={t('log.filter') || 'Filter'}
+            >
+              <IconFilter size={18} stroke={1.5} color={filterType ? '#4f7cff' : '#666'} />
+              {filterType && <span style={{ fontSize: 12, color: '#4f7cff' }}>1</span>}
+            </button>
+          </div>
+          {showFilters && (
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #eee' }}>
+              <button
+                onClick={() => setFilterType(null)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: `1px solid ${!filterType ? '#4f7cff' : '#d0d0d9'}`,
+                  background: !filterType ? '#e6edff' : '#fff',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  fontWeight: !filterType ? 600 : 500
+                }}
+              >
+                {t('log.filter_all') || 'All'}
+              </button>
+              {eventTypesInList.map(type => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(filterType === type ? null : type)}
+                  style={{
+                    padding: '6px 12px',
+                    borderRadius: 999,
+                    border: `1px solid ${filterType === type ? '#4f7cff' : '#d0d0d9'}`,
+                    background: filterType === type ? '#e6edff' : '#fff',
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    fontWeight: filterType === type ? 600 : 500
+                  }}
+                >
+                  {t(`event.${type.toLowerCase()}`) || type}
+                </button>
+              ))}
+            </div>
+          )}
           {visibleEvents.length === 0 ? <p>{t('log.no_events')}</p> : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
               {visibleEvents.map(ev => {
