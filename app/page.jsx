@@ -183,6 +183,9 @@ export default function LogPage() {
   const [buttonConfig, setButtonConfig] = useState(null);
   const [configLoaded, setConfigLoaded] = useState(false);
   const hoverTimerRef = useRef(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const sentinelRef = useRef(null);
 
   // Bottom sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -222,6 +225,7 @@ export default function LogPage() {
       setEvents([]);
       setButtonConfig(null);
       setConfigLoaded(true);
+      setHasMore(true);
     }
   }, [selectedBabyId]);
 
@@ -239,16 +243,63 @@ export default function LogPage() {
     } catch { }
   }
 
-  async function fetchEvents(babyId) {
-    const { data, error } = await supabase.from('events').select('*').eq('baby_id', babyId).order('occurred_at', { ascending: false }).limit(10);
+  async function fetchEvents(babyId, cursor = null) {
+    const PAGE_SIZE = 20;
+    let query = supabase.from('events')
+      .select('*')
+      .eq('baby_id', babyId)
+      .order('occurred_at', { ascending: false })
+      .limit(PAGE_SIZE + 1);
+
+    if (cursor) {
+      query = query.lt('occurred_at', cursor);
+    }
+
+    const { data, error } = await query;
     if (error) { console.error('fetchEvents error', error); return; }
-    setEvents(data || []);
+
+    const hasMoreResults = (data || []).length > PAGE_SIZE;
+    const eventsData = hasMoreResults ? data.slice(0, PAGE_SIZE) : (data || []);
+
+    if (cursor) {
+      setEvents(prev => [...prev, ...eventsData]);
+    } else {
+      setEvents(eventsData);
+    }
+    setHasMore(hasMoreResults);
+  }
+
+  async function loadMore() {
+    if (!selectedBaby || loadingMore || !hasMore) return;
+    const oldest = events[events.length - 1]?.occurred_at;
+    if (!oldest) return;
+
+    setLoadingMore(true);
+    await fetchEvents(selectedBaby.id, oldest);
+    setLoadingMore(false);
   }
 
   const EVENT_DEFS = useMemo(() => {
     if (!configLoaded) return [];
     return applyButtonConfig(BASE_EVENT_DEFS, buttonConfig);
   }, [buttonConfig, configLoaded]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    if (!sentinelRef.current || !hasMore || loadingMore) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinelRef.current);
+    return () => observer.disconnect();
+  }, [hasMore, loadingMore, events.length]);
 
   async function logEvent(type) {
     if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot create events.');
@@ -297,7 +348,7 @@ export default function LogPage() {
         return;
       }
       const { event } = await res.json();
-      setEvents(prev => [event, ...prev].slice(0, 10));
+      setEvents(prev => [event, ...prev]);
       setEditingEvent(event);
       setOverrideTimestamp(toDateTimeLocalString(new Date(event.occurred_at || Date.now())));
     } catch (err) {
@@ -441,6 +492,16 @@ export default function LogPage() {
                 )
               })}
             </ul>
+          )}
+          {hasMore && (
+            <div ref={sentinelRef} style={{ padding: 20, textAlign: 'center', color: '#888' }}>
+              {loadingMore ? (t('log.loading') || 'Loading...') : ''}
+            </div>
+          )}
+          {!hasMore && visibleEvents.length > 0 && (
+            <div style={{ padding: 16, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
+              {t('log.no_more_events') || 'No more events'}
+            </div>
           )}
         </div>
       </section>
