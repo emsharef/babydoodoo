@@ -96,6 +96,10 @@ function MetaInline({ ev, t }) {
     const k = m.yum.kind;
     const em = k === 'breast' ? '🤱' : k === 'bottle' ? '🍼' : k === 'formula' ? '🥛' : '🍎';
     if (k) chips.push(<Chip key="yum-k"><span>{em}</span><span>{t(`val.${k}`)}</span></Chip>);
+    if (k === 'breast' && m.yum.side) {
+      const sideEmoji = m.yum.side === 'left' ? '⬅️' : m.yum.side === 'right' ? '➡️' : '↔️';
+      chips.push(<Chip key="yum-side"><span>{sideEmoji}</span><span>{t(`val.${m.yum.side}`)}</span></Chip>);
+    }
     if ((m.yum.quantity ?? null) !== null) chips.push(<Chip key="yum-q"><span>⚖️</span><span>{m.yum.quantity}</span><span style={{ color: '#777' }}>ml</span></Chip>);
   }
   if ((ev.event_type === 'MyMood' || ev.event_type === 'BabyMood') && m.mood) {
@@ -664,6 +668,19 @@ export default function LogPage() {
                   </Pill>
                 ))}
               </div>
+              {metaDraft?.yum?.kind === 'breast' && (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Pill active={metaDraft?.yum?.side === 'left'} onClick={() => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), side: 'left' } }))}>
+                    ⬅️ {t('val.left')}
+                  </Pill>
+                  <Pill active={metaDraft?.yum?.side === 'right'} onClick={() => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), side: 'right' } }))}>
+                    {t('val.right')} ➡️
+                  </Pill>
+                  <Pill active={metaDraft?.yum?.side === 'both'} onClick={() => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), side: 'both' } }))}>
+                    ↔️ {t('val.both')}
+                  </Pill>
+                </div>
+              )}
               <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span>{t('field.quantity')}</span>
                 <input type="number" min="0" value={metaDraft?.yum?.quantity ?? 0} onChange={(e) => setMetaDraft(prev => ({ ...prev, yum: { ...(prev.yum || {}), quantity: e.target.value === '' ? '' : Number(e.target.value) } }))} style={{ padding: '8px 10px', borderRadius: 10, border: '1px solid #ccc', width: 120, fontSize: 16 }} />
