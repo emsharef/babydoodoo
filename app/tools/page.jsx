@@ -6,6 +6,8 @@ import { useLanguage } from '@/components/LanguageContext';
 import IconButton from '@/components/IconButton';
 import BottomSheet from '@/components/BottomSheet';
 import * as echarts from 'echarts';
+import * as XLSX from 'xlsx';
+import { EVENT_DEFS } from '@/lib/events';
 
 function toDateTimeLocalString(date) {
     const pad = (n) => String(n).padStart(2, '0');
@@ -176,6 +178,46 @@ export default function ToolsPage() {
     const [overrideTimestamp, setOverrideTimestamp] = useState('');
     const [sheetLoading, setSheetLoading] = useState(false);
 
+    // Export State
+    const [exportDateFrom, setExportDateFrom] = useState('');
+    const [exportDateTo, setExportDateTo] = useState('');
+    const [exportTypes, setExportTypes] = useState([]);
+    const [exportFormat, setExportFormat] = useState('csv');
+    const [exporting, setExporting] = useState(false);
+
+    // Import State
+    const [importPreview, setImportPreview] = useState([]);
+    const [importErrors, setImportErrors] = useState([]);
+    const [importing, setImporting] = useState(false);
+    const [importStep, setImportStep] = useState('upload'); // 'upload' | 'preview' | 'done'
+    const [importedCount, setImportedCount] = useState(0);
+    const [importTimezone, setImportTimezone] = useState('local'); // 'local', 'UTC', or offset like '-05:00'
+    const fileInputRef = useRef(null);
+
+    // Common timezone options
+    const TIMEZONE_OPTIONS = [
+        { value: 'local', label: 'Local Time (Browser)' },
+        { value: 'UTC', label: 'UTC (Zulu)' },
+        { value: '-12:00', label: 'UTC-12:00' },
+        { value: '-11:00', label: 'UTC-11:00' },
+        { value: '-10:00', label: 'UTC-10:00 (Hawaii)' },
+        { value: '-09:00', label: 'UTC-09:00 (Alaska)' },
+        { value: '-08:00', label: 'UTC-08:00 (Pacific)' },
+        { value: '-07:00', label: 'UTC-07:00 (Mountain)' },
+        { value: '-06:00', label: 'UTC-06:00 (Central)' },
+        { value: '-05:00', label: 'UTC-05:00 (Eastern)' },
+        { value: '-04:00', label: 'UTC-04:00 (Atlantic)' },
+        { value: '-03:00', label: 'UTC-03:00' },
+        { value: '+00:00', label: 'UTC+00:00 (London)' },
+        { value: '+01:00', label: 'UTC+01:00 (Paris)' },
+        { value: '+02:00', label: 'UTC+02:00' },
+        { value: '+03:00', label: 'UTC+03:00 (Moscow)' },
+        { value: '+05:30', label: 'UTC+05:30 (India)' },
+        { value: '+08:00', label: 'UTC+08:00 (China)' },
+        { value: '+09:00', label: 'UTC+09:00 (Japan)' },
+        { value: '+10:00', label: 'UTC+10:00 (Sydney)' },
+    ];
+
     useEffect(() => {
         if (selectedBabyId) {
             fetchEvents();
@@ -299,6 +341,319 @@ export default function ToolsPage() {
         if (editingEvent?.id === id) { setSheetOpen(false); setEditingEvent(null); }
     }
 
+    // --- Export Logic ---
+    function toggleExportType(type) {
+        setExportTypes(prev =>
+            prev.includes(type)
+                ? prev.filter(t => t !== type)
+                : [...prev, type]
+        );
+    }
+
+    function flattenMeta(type, meta) {
+        if (!meta) return {};
+        const mapping = {
+            DooDoo: meta.doo,
+            PeePee: meta.pee,
+            Diaper: meta.diaper,
+            YumYum: meta.yum,
+            Contraction: meta.contraction,
+            Temperature: meta.temp,
+            Medicine: meta.medicine,
+            Doctor: meta.doctor,
+            Heartbeat: meta.heartbeat,
+            Play: meta.play,
+            Milestone: meta.milestone,
+            Measure: meta.measure,
+            Puke: meta.puke,
+            BabyMood: { mood: meta.mood },
+            MyMood: { mood: meta.mood },
+            KickMe: meta.kick,
+        };
+        const nested = mapping[type];
+        if (!nested) return {};
+        const result = {};
+        for (const [k, v] of Object.entries(nested)) {
+            result[`meta_${k}`] = v;
+        }
+        return result;
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function downloadFile(rows, format, babyName) {
+        const filename = `${babyName || 'baby'}_events_${new Date().toISOString().slice(0, 10)}`;
+
+        if (format === 'json') {
+            const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+            triggerDownload(blob, `${filename}.json`);
+        } else if (format === 'csv' || format === 'xlsx') {
+            const ws = XLSX.utils.json_to_sheet(rows);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Events');
+            if (format === 'csv') {
+                const csv = XLSX.utils.sheet_to_csv(ws);
+                const blob = new Blob([csv], { type: 'text/csv' });
+                triggerDownload(blob, `${filename}.csv`);
+            } else {
+                XLSX.writeFile(wb, `${filename}.xlsx`);
+            }
+        }
+    }
+
+    async function handleExport() {
+        if (!selectedBabyId) return;
+        setExporting(true);
+
+        let query = supabase
+            .from('events')
+            .select('*')
+            .eq('baby_id', selectedBabyId)
+            .order('occurred_at', { ascending: false });
+
+        if (exportDateFrom) query = query.gte('occurred_at', exportDateFrom);
+        if (exportDateTo) query = query.lte('occurred_at', exportDateTo + 'T23:59:59');
+        if (exportTypes.length > 0) query = query.in('event_type', exportTypes);
+
+        const { data, error } = await query;
+        setExporting(false);
+
+        if (error || !data?.length) {
+            alert(t('tools.no_data'));
+            return;
+        }
+
+        const rows = data.map(e => ({
+            id: e.id,
+            type: e.event_type,
+            occurred_at: e.occurred_at,
+            notes: e.meta?.notes || '',
+            ...flattenMeta(e.event_type, e.meta)
+        }));
+
+        const baby = babies.find(b => b.id === selectedBabyId);
+        downloadFile(rows, exportFormat, baby?.name);
+    }
+
+    // --- Import Logic ---
+    const ALLOWED_TYPES = [
+        'DooDoo','PeePee','Diaper','YumYum',
+        'SleepStart','SleepEnd',
+        'Puke','Sick','Temperature','Medicine','Doctor',
+        'BabyMood','MyMood','Play','Milestone','Note',
+        'KickMe','Contraction','Heartbeat',
+        'CryCry','BlahBlah','Measure'
+    ];
+
+    function formatLocalDateTime(date) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+    }
+
+    function generateTemplate() {
+        const headers = ['type', 'occurred_at', 'notes', 'meta_consistency', 'meta_color', 'meta_amount', 'meta_kind', 'meta_quantity', 'meta_side', 'meta_duration_sec', 'meta_intensity', 'meta_value', 'meta_unit'];
+        const now = new Date();
+        const hour1 = new Date(now - 3600000); // 1 hour ago
+        const hour2 = new Date(now - 7200000); // 2 hours ago
+        const exampleRows = [
+            ['DooDoo', formatLocalDateTime(now), 'Example note', 'normal', 'brown', '', '', '', '', '', '', '', ''],
+            ['PeePee', formatLocalDateTime(hour1), '', '', '', 'medium', '', '', '', '', '', '', ''],
+            ['YumYum', formatLocalDateTime(hour2), '', '', '', '', 'bottle', '120', '', '', '', '', ''],
+        ];
+        const csv = [headers.join(','), ...exampleRows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        triggerDownload(blob, 'import_template.csv');
+    }
+
+    function unflattenMeta(type, row) {
+        const meta = {};
+        if (row.notes) meta.notes = row.notes;
+
+        const metaFields = {};
+        for (const [key, value] of Object.entries(row)) {
+            if (key.startsWith('meta_') && value !== undefined && value !== null && value !== '') {
+                const fieldName = key.replace('meta_', '');
+                // Try to parse numbers
+                const numVal = Number(value);
+                metaFields[fieldName] = !isNaN(numVal) && value !== '' ? numVal : value;
+            }
+        }
+
+        const typeToKey = {
+            DooDoo: 'doo', PeePee: 'pee', Diaper: 'diaper',
+            YumYum: 'yum', Contraction: 'contraction', Temperature: 'temp',
+            Medicine: 'medicine', Doctor: 'doctor', Heartbeat: 'heartbeat',
+            Play: 'play', Milestone: 'milestone', Measure: 'measure',
+            Puke: 'puke', KickMe: 'kick'
+        };
+
+        if (typeToKey[type] && Object.keys(metaFields).length > 0) {
+            meta[typeToKey[type]] = metaFields;
+        }
+
+        if ((type === 'BabyMood' || type === 'MyMood') && metaFields.mood) {
+            meta.mood = metaFields.mood;
+        }
+
+        return Object.keys(meta).length > 0 ? meta : undefined;
+    }
+
+    function parseDateTime(dateStr, timezone) {
+        // Check if date already has timezone info (Z, +XX:XX, -XX:XX)
+        const hasTimezone = /Z$|[+-]\d{2}:\d{2}$|[+-]\d{4}$/.test(dateStr);
+
+        if (hasTimezone) {
+            // Date already has timezone, parse directly
+            return new Date(dateStr);
+        }
+
+        // Normalize common date formats to ISO-like format
+        // Handle "YYYY-MM-DD HH:MM:SS" or "YYYY-MM-DD HH:MM" or "YYYY/MM/DD HH:MM:SS"
+        let normalized = dateStr.trim().replace(/\//g, '-');
+
+        // If there's a space, replace it with T for ISO format
+        if (normalized.includes(' ')) {
+            normalized = normalized.replace(' ', 'T');
+        }
+
+        if (timezone === 'local') {
+            // Parse as local time - create date parts and use local Date constructor
+            const match = normalized.match(/^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2}))?)?/);
+            if (match) {
+                const [, year, month, day, hour = '0', min = '0', sec = '0'] = match;
+                return new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hour), parseInt(min), parseInt(sec));
+            }
+            return new Date(dateStr);
+        } else if (timezone === 'UTC') {
+            // Append Z for UTC
+            return new Date(normalized + 'Z');
+        } else {
+            // Append the timezone offset (e.g., -05:00)
+            return new Date(normalized + timezone);
+        }
+    }
+
+    function handleFileSelect(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = evt.target.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+                const preview = [];
+                const errors = [];
+
+                rows.forEach((row, idx) => {
+                    const type = row.type || row.Type || row.TYPE;
+                    const occurredAt = row.occurred_at || row.occurredAt || row.timestamp;
+
+                    if (!type || !occurredAt) {
+                        errors.push({ row: idx + 2, message: 'Missing type or occurred_at' });
+                        return;
+                    }
+
+                    if (!ALLOWED_TYPES.includes(type)) {
+                        errors.push({ row: idx + 2, message: `${t('tools.invalid_type')}: ${type}` });
+                        return;
+                    }
+
+                    // Parse date with timezone
+                    let parsedDate;
+                    try {
+                        parsedDate = parseDateTime(String(occurredAt), importTimezone);
+                        if (isNaN(parsedDate.getTime())) throw new Error('Invalid date');
+                    } catch {
+                        errors.push({ row: idx + 2, message: `Invalid date: ${occurredAt}` });
+                        return;
+                    }
+
+                    preview.push({
+                        event_type: type,
+                        occurred_at: parsedDate.toISOString(),
+                        meta: unflattenMeta(type, row),
+                        _rowNum: idx + 2,
+                    });
+                });
+
+                setImportPreview(preview);
+                setImportErrors(errors);
+                setImportStep('preview');
+            } catch (err) {
+                console.error('CSV parse error:', err);
+                alert(t('tools.import_error'));
+            }
+        };
+        reader.readAsBinaryString(file);
+    }
+
+    async function handleImport() {
+        if (!selectedBabyId || importPreview.length === 0) return;
+
+        setImporting(true);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+            alert('Missing session token.');
+            setImporting(false);
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/events/bulk', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    'authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    baby_id: selectedBabyId,
+                    events: importPreview.map(({ event_type, occurred_at, meta }) => ({
+                        event_type,
+                        occurred_at,
+                        meta,
+                    }))
+                })
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || 'Import failed');
+            }
+
+            const result = await res.json();
+            setImportedCount(result.imported);
+            setImportStep('done');
+        } catch (err) {
+            console.error('Import error:', err);
+            alert(t('tools.import_error') + ': ' + err.message);
+        } finally {
+            setImporting(false);
+        }
+    }
+
+    function resetImport() {
+        setImportPreview([]);
+        setImportErrors([]);
+        setImportStep('upload');
+        setImportedCount(0);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
 
     // --- Kick Counter Logic ---
     const last10KicksTime = useMemo(() => {
@@ -430,6 +785,34 @@ export default function ToolsPage() {
                 >
                     ⏱️ {t('tools.contractions')}
                 </button>
+                <button
+                    onClick={() => setActiveTab('export')}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: 8,
+                        background: activeTab === 'export' ? '#e6edff' : 'transparent',
+                        color: activeTab === 'export' ? '#4f7cff' : '#666',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    📤 {t('tools.export')}
+                </button>
+                <button
+                    onClick={() => { setActiveTab('import'); resetImport(); }}
+                    style={{
+                        padding: '8px 16px',
+                        borderRadius: 8,
+                        background: activeTab === 'import' ? '#e6edff' : 'transparent',
+                        color: activeTab === 'import' ? '#4f7cff' : '#666',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer'
+                    }}
+                >
+                    📥 {t('tools.import')}
+                </button>
             </div>
 
             {activeTab === 'kick' && (
@@ -525,6 +908,302 @@ export default function ToolsPage() {
                                 </li>
                             ))}
                         </ul>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'export' && (
+                <div style={{ display: 'grid', gap: 16 }}>
+                    <div style={{ padding: 24, background: '#fff', borderRadius: 16, border: '1px solid #eee' }}>
+                        <h3 style={{ margin: '0 0 16px' }}>{t('tools.export_desc')}</h3>
+
+                        {/* Date Range */}
+                        <div style={{ display: 'grid', gap: 12, marginBottom: 20 }}>
+                            <label style={{ display: 'grid', gap: 6 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500 }}>{t('tools.date_from')}</span>
+                                <input
+                                    type="date"
+                                    value={exportDateFrom}
+                                    onChange={e => setExportDateFrom(e.target.value)}
+                                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', fontSize: 14 }}
+                                />
+                            </label>
+                            <label style={{ display: 'grid', gap: 6 }}>
+                                <span style={{ fontSize: 14, fontWeight: 500 }}>{t('tools.date_to')}</span>
+                                <input
+                                    type="date"
+                                    value={exportDateTo}
+                                    onChange={e => setExportDateTo(e.target.value)}
+                                    style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', fontSize: 14 }}
+                                />
+                            </label>
+                        </div>
+
+                        {/* Event Types Multi-Select */}
+                        <div style={{ marginBottom: 20 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, display: 'block', marginBottom: 8 }}>{t('tools.event_types')}</span>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                <button
+                                    onClick={() => setExportTypes([])}
+                                    style={{
+                                        padding: '6px 12px',
+                                        borderRadius: 8,
+                                        border: exportTypes.length === 0 ? '2px solid #4f7cff' : '1px solid #d0d0d9',
+                                        background: exportTypes.length === 0 ? '#e6edff' : '#fff',
+                                        fontSize: 13,
+                                        cursor: 'pointer',
+                                        fontWeight: exportTypes.length === 0 ? 600 : 400
+                                    }}
+                                >
+                                    {t('tools.all_types')}
+                                </button>
+                                {EVENT_DEFS.map(def => (
+                                    <button
+                                        key={def.type}
+                                        onClick={() => toggleExportType(def.type)}
+                                        style={{
+                                            padding: '6px 10px',
+                                            borderRadius: 8,
+                                            border: exportTypes.includes(def.type) ? '2px solid #4f7cff' : '1px solid #d0d0d9',
+                                            background: exportTypes.includes(def.type) ? '#e6edff' : '#fff',
+                                            fontSize: 13,
+                                            cursor: 'pointer',
+                                            fontWeight: exportTypes.includes(def.type) ? 600 : 400
+                                        }}
+                                    >
+                                        {def.emoji} {t(`event.${def.type.toLowerCase()}`) || def.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Format Selection */}
+                        <div style={{ marginBottom: 20 }}>
+                            <span style={{ fontSize: 14, fontWeight: 500, display: 'block', marginBottom: 8 }}>{t('tools.format')}</span>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {['csv', 'xlsx', 'json'].map(fmt => (
+                                    <button
+                                        key={fmt}
+                                        onClick={() => setExportFormat(fmt)}
+                                        style={{
+                                            padding: '10px 20px',
+                                            borderRadius: 8,
+                                            border: exportFormat === fmt ? '2px solid #4f7cff' : '1px solid #d0d0d9',
+                                            background: exportFormat === fmt ? '#e6edff' : '#fff',
+                                            fontSize: 14,
+                                            cursor: 'pointer',
+                                            fontWeight: exportFormat === fmt ? 600 : 400
+                                        }}
+                                    >
+                                        {fmt.toUpperCase()}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Export Button */}
+                        <button
+                            onClick={handleExport}
+                            disabled={exporting}
+                            style={{
+                                padding: '14px 28px',
+                                borderRadius: 10,
+                                background: exporting ? '#999' : '#4f7cff',
+                                color: '#fff',
+                                fontWeight: 700,
+                                fontSize: 16,
+                                border: 'none',
+                                cursor: exporting ? 'not-allowed' : 'pointer',
+                                boxShadow: '0 4px 12px rgba(79, 124, 255, 0.3)'
+                            }}
+                        >
+                            {exporting ? t('tools.exporting') : t('tools.export_button')}
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'import' && (
+                <div style={{ display: 'grid', gap: 16 }}>
+                    <div style={{ padding: 24, background: '#fff', borderRadius: 16, border: '1px solid #eee' }}>
+                        {importStep === 'upload' && (
+                            <>
+                                <h3 style={{ margin: '0 0 16px' }}>{t('tools.import_desc')}</h3>
+                                <p style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
+                                    {t('tools.import_instructions')}
+                                </p>
+
+                                <button
+                                    onClick={generateTemplate}
+                                    style={{
+                                        padding: '10px 16px',
+                                        borderRadius: 8,
+                                        border: '1px solid #4f7cff',
+                                        background: '#fff',
+                                        color: '#4f7cff',
+                                        fontWeight: 600,
+                                        cursor: 'pointer',
+                                        marginBottom: 20
+                                    }}
+                                >
+                                    📄 {t('tools.download_template')}
+                                </button>
+
+                                <div style={{ marginTop: 16, marginBottom: 16 }}>
+                                    <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+                                        {t('tools.timezone')}
+                                    </label>
+                                    <select
+                                        value={importTimezone}
+                                        onChange={(e) => setImportTimezone(e.target.value)}
+                                        style={{
+                                            padding: '10px 12px',
+                                            borderRadius: 10,
+                                            border: '1px solid #ccc',
+                                            fontSize: 14,
+                                            width: '100%',
+                                            maxWidth: 300
+                                        }}
+                                    >
+                                        {TIMEZONE_OPTIONS.map(tz => (
+                                            <option key={tz.value} value={tz.value}>{tz.label}</option>
+                                        ))}
+                                    </select>
+                                    <p style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                                        {t('tools.timezone_hint')}
+                                    </p>
+                                </div>
+
+                                <div style={{ marginTop: 16 }}>
+                                    <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+                                        {t('tools.select_file')}
+                                    </label>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".csv,.xlsx,.xls"
+                                        onChange={handleFileSelect}
+                                        style={{
+                                            padding: '10px',
+                                            border: '2px dashed #ccc',
+                                            borderRadius: 10,
+                                            width: '100%',
+                                            cursor: 'pointer'
+                                        }}
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        {importStep === 'preview' && (
+                            <>
+                                <h3 style={{ margin: '0 0 16px' }}>{t('tools.preview')}</h3>
+
+                                {importErrors.length > 0 && (
+                                    <div style={{ background: '#fff3cd', padding: 12, borderRadius: 8, marginBottom: 16, border: '1px solid #ffc107' }}>
+                                        <strong style={{ color: '#856404' }}>Errors found:</strong>
+                                        <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+                                            {importErrors.map((err, i) => (
+                                                <li key={i} style={{ color: '#856404', fontSize: 13 }}>
+                                                    Row {err.row}: {err.message}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                <div style={{ marginBottom: 16, fontSize: 14 }}>
+                                    <strong>{importPreview.length}</strong> {t('tools.rows_to_import')}
+                                </div>
+
+                                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                                        <thead>
+                                            <tr style={{ background: '#f5f5f5' }}>
+                                                <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Type</th>
+                                                <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Date</th>
+                                                <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Notes</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {importPreview.slice(0, 50).map((row, i) => (
+                                                <tr key={i}>
+                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                                                        {EVENT_DEFS.find(d => d.type === row.event_type)?.emoji} {row.event_type}
+                                                    </td>
+                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                                                        {new Date(row.occurred_at).toLocaleString()}
+                                                    </td>
+                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee', color: '#666' }}>
+                                                        {row.meta?.notes || '-'}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                    {importPreview.length > 50 && (
+                                        <div style={{ padding: 8, textAlign: 'center', color: '#666', fontSize: 12 }}>
+                                            ... and {importPreview.length - 50} more rows
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                                    <button
+                                        onClick={resetImport}
+                                        style={{
+                                            padding: '12px 20px',
+                                            borderRadius: 8,
+                                            border: '1px solid #ccc',
+                                            background: '#fff',
+                                            fontWeight: 600,
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        {t('tools.back')}
+                                    </button>
+                                    <button
+                                        onClick={handleImport}
+                                        disabled={importing || importPreview.length === 0}
+                                        style={{
+                                            padding: '12px 24px',
+                                            borderRadius: 8,
+                                            background: importing ? '#999' : '#4caf50',
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            border: 'none',
+                                            cursor: importing ? 'not-allowed' : 'pointer'
+                                        }}
+                                    >
+                                        {importing ? t('tools.importing') : t('tools.confirm_import')}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+
+                        {importStep === 'done' && (
+                            <div style={{ textAlign: 'center', padding: 20 }}>
+                                <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
+                                <h3 style={{ margin: '0 0 8px' }}>
+                                    {t('tools.import_success').replace('{count}', importedCount)}
+                                </h3>
+                                <button
+                                    onClick={resetImport}
+                                    style={{
+                                        marginTop: 16,
+                                        padding: '10px 20px',
+                                        borderRadius: 8,
+                                        border: '1px solid #4f7cff',
+                                        background: '#fff',
+                                        color: '#4f7cff',
+                                        fontWeight: 600,
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {t('tools.back')}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
