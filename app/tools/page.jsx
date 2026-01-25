@@ -193,6 +193,11 @@ export default function ToolsPage() {
     const [importedCount, setImportedCount] = useState(0);
     const [importTimezone, setImportTimezone] = useState('local'); // 'local', 'UTC', or offset like '-05:00'
     const fileInputRef = useRef(null);
+    const photoInputRef = useRef(null);
+
+    // Photo Import State
+    const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
+    const [photoDateHint, setPhotoDateHint] = useState(() => new Date().toISOString().slice(0, 10));
 
     // Common timezone options
     const TIMEZONE_OPTIONS = [
@@ -653,6 +658,106 @@ export default function ToolsPage() {
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
+        if (photoInputRef.current) {
+            photoInputRef.current.value = '';
+        }
+    }
+
+    async function handlePhotoUpload(e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Check file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        // Check file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('File too large. Maximum size is 10MB.');
+            return;
+        }
+
+        setPhotoAnalyzing(true);
+        setImportErrors([]);
+
+        const { data: { session } } = await supabase.auth.getSession();
+        const token = session?.access_token;
+        if (!token) {
+            alert('Please sign in first.');
+            setPhotoAnalyzing(false);
+            return;
+        }
+
+        // Convert to base64
+        const reader = new FileReader();
+        reader.onload = async (evt) => {
+            try {
+                const base64 = evt.target.result.split(',')[1];
+                const mediaType = file.type || 'image/jpeg';
+
+                // Call vision API
+                const res = await fetch('/api/vision/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        image: base64,
+                        media_type: mediaType,
+                        date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
+                        timezone: importTimezone === 'local'
+                            ? (() => {
+                                // Get browser's timezone offset and format as ±HH:MM
+                                const offset = new Date().getTimezoneOffset();
+                                const sign = offset <= 0 ? '+' : '-';
+                                const hrs = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+                                const mins = String(Math.abs(offset) % 60).padStart(2, '0');
+                                return `${sign}${hrs}:${mins}`;
+                            })()
+                            : importTimezone
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || t('tools.analysis_failed'));
+                }
+
+                const { events } = await res.json();
+
+                if (!events || events.length === 0) {
+                    setImportErrors([{ row: 0, message: 'No events could be extracted from the photo. Try a clearer image or use CSV import.' }]);
+                    setPhotoAnalyzing(false);
+                    return;
+                }
+
+                // Format events for preview
+                const preview = events.map((e, idx) => ({
+                    event_type: e.event_type,
+                    occurred_at: e.occurred_at,
+                    meta: e.meta,
+                    _rowNum: idx + 1,
+                }));
+
+                setImportPreview(preview);
+                setImportStep('preview');
+            } catch (err) {
+                console.error('Photo analysis error:', err);
+                alert(t('tools.analysis_failed') + ': ' + err.message);
+            } finally {
+                setPhotoAnalyzing(false);
+            }
+        };
+
+        reader.onerror = () => {
+            alert('Failed to read file');
+            setPhotoAnalyzing(false);
+        };
+
+        reader.readAsDataURL(file);
     }
 
     // --- Kick Counter Logic ---
@@ -1092,6 +1197,77 @@ export default function ToolsPage() {
                                         }}
                                     />
                                 </div>
+
+                                {/* Photo Import Section */}
+                                <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid #eee' }}>
+                                    <h4 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 600 }}>
+                                        📷 {t('tools.or_upload_photo')}
+                                    </h4>
+                                    <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
+                                        {t('tools.photo_import_desc')}
+                                    </p>
+
+                                    <div style={{ marginBottom: 16 }}>
+                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
+                                            {t('tools.date_hint')}
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={photoDateHint}
+                                            onChange={(e) => setPhotoDateHint(e.target.value)}
+                                            style={{
+                                                padding: '10px 12px',
+                                                borderRadius: 10,
+                                                border: '1px solid #ccc',
+                                                fontSize: 14,
+                                                width: '100%',
+                                                maxWidth: 200
+                                            }}
+                                        />
+                                        <p style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                                            {t('tools.date_hint_desc')}
+                                        </p>
+                                    </div>
+
+                                    <div style={{ position: 'relative' }}>
+                                        <input
+                                            ref={photoInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handlePhotoUpload}
+                                            disabled={photoAnalyzing}
+                                            style={{
+                                                padding: '10px',
+                                                border: '2px dashed #a5d6a7',
+                                                borderRadius: 10,
+                                                width: '100%',
+                                                cursor: photoAnalyzing ? 'not-allowed' : 'pointer',
+                                                background: '#f1f8e9',
+                                                opacity: photoAnalyzing ? 0.6 : 1
+                                            }}
+                                        />
+                                        {photoAnalyzing && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                background: 'rgba(255,255,255,0.9)',
+                                                borderRadius: 10,
+                                                fontSize: 14,
+                                                fontWeight: 500,
+                                                color: '#4caf50'
+                                            }}>
+                                                <span style={{ marginRight: 8 }}>🔄</span>
+                                                {t('tools.analyzing')}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </>
                         )}
 
@@ -1116,29 +1292,67 @@ export default function ToolsPage() {
                                     <strong>{importPreview.length}</strong> {t('tools.rows_to_import')}
                                 </div>
 
-                                <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
+                                <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                         <thead>
                                             <tr style={{ background: '#f5f5f5' }}>
                                                 <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Type</th>
                                                 <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Date</th>
-                                                <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Notes</th>
+                                                <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Details</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {importPreview.slice(0, 50).map((row, i) => (
-                                                <tr key={i}>
-                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                                                        {EVENT_DEFS.find(d => d.type === row.event_type)?.emoji} {row.event_type}
-                                                    </td>
-                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
-                                                        {new Date(row.occurred_at).toLocaleString()}
-                                                    </td>
-                                                    <td style={{ padding: 8, borderBottom: '1px solid #eee', color: '#666' }}>
-                                                        {row.meta?.notes || '-'}
-                                                    </td>
-                                                </tr>
-                                            ))}
+                                            {importPreview.slice(0, 50).map((row, i) => {
+                                                // Format metadata for display
+                                                const formatMeta = (meta, type) => {
+                                                    if (!meta) return '-';
+                                                    const parts = [];
+
+                                                    // Type-specific metadata
+                                                    if (meta.yum) {
+                                                        if (meta.yum.kind) parts.push(meta.yum.kind);
+                                                        if (meta.yum.side) parts.push(`side: ${meta.yum.side}`);
+                                                        if (meta.yum.quantity) parts.push(meta.yum.quantity);
+                                                    }
+                                                    if (meta.doo) {
+                                                        if (meta.doo.consistency) parts.push(meta.doo.consistency);
+                                                        if (meta.doo.color) parts.push(meta.doo.color);
+                                                    }
+                                                    if (meta.pee) {
+                                                        if (meta.pee.amount) parts.push(meta.pee.amount);
+                                                    }
+                                                    if (meta.temp) {
+                                                        if (meta.temp.value) parts.push(`${meta.temp.value}°${meta.temp.unit || 'F'}`);
+                                                    }
+                                                    if (meta.medicine) {
+                                                        if (meta.medicine.name) parts.push(meta.medicine.name);
+                                                        if (meta.medicine.dose) parts.push(meta.medicine.dose);
+                                                    }
+                                                    if (meta.diaper) {
+                                                        if (meta.diaper.pee) parts.push('pee');
+                                                        if (meta.diaper.poop) parts.push('poop');
+                                                    }
+
+                                                    // Notes (shown last)
+                                                    if (meta.notes) parts.push(`"${meta.notes}"`);
+
+                                                    return parts.length > 0 ? parts.join(', ') : '-';
+                                                };
+
+                                                return (
+                                                    <tr key={i}>
+                                                        <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
+                                                            {EVENT_DEFS.find(d => d.type === row.event_type)?.emoji} {row.event_type}
+                                                        </td>
+                                                        <td style={{ padding: 8, borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
+                                                            {new Date(row.occurred_at).toLocaleString()}
+                                                        </td>
+                                                        <td style={{ padding: 8, borderBottom: '1px solid #eee', color: '#666', maxWidth: 200 }}>
+                                                            {formatMeta(row.meta, row.event_type)}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                     {importPreview.length > 50 && (
