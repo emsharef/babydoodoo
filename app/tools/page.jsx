@@ -187,6 +187,7 @@ export default function ToolsPage() {
 
     // Import State
     const [importPreview, setImportPreview] = useState([]);
+    const [importSelected, setImportSelected] = useState(new Set()); // indices of selected rows
     const [importErrors, setImportErrors] = useState([]);
     const [importing, setImporting] = useState(false);
     const [importStep, setImportStep] = useState('upload'); // 'upload' | 'preview' | 'done'
@@ -594,6 +595,7 @@ export default function ToolsPage() {
                 });
 
                 setImportPreview(preview);
+                setImportSelected(new Set(preview.map((_, i) => i))); // Select all by default
                 setImportErrors(errors);
                 setImportStep('preview');
             } catch (err) {
@@ -605,7 +607,7 @@ export default function ToolsPage() {
     }
 
     async function handleImport() {
-        if (!selectedBabyId || importPreview.length === 0) return;
+        if (!selectedBabyId || importSelected.size === 0) return;
 
         setImporting(true);
 
@@ -617,6 +619,15 @@ export default function ToolsPage() {
             return;
         }
 
+        // Only import selected rows
+        const selectedEvents = importPreview
+            .filter((_, idx) => importSelected.has(idx))
+            .map(({ event_type, occurred_at, meta }) => ({
+                event_type,
+                occurred_at,
+                meta,
+            }));
+
         try {
             const res = await fetch('/api/events/bulk', {
                 method: 'POST',
@@ -626,11 +637,7 @@ export default function ToolsPage() {
                 },
                 body: JSON.stringify({
                     baby_id: selectedBabyId,
-                    events: importPreview.map(({ event_type, occurred_at, meta }) => ({
-                        event_type,
-                        occurred_at,
-                        meta,
-                    }))
+                    events: selectedEvents
                 })
             });
 
@@ -652,6 +659,7 @@ export default function ToolsPage() {
 
     function resetImport() {
         setImportPreview([]);
+        setImportSelected(new Set());
         setImportErrors([]);
         setImportStep('upload');
         setImportedCount(0);
@@ -743,6 +751,7 @@ export default function ToolsPage() {
                 }));
 
                 setImportPreview(preview);
+                setImportSelected(new Set(preview.map((_, i) => i))); // Select all by default
                 setImportStep('preview');
             } catch (err) {
                 console.error('Photo analysis error:', err);
@@ -1289,13 +1298,27 @@ export default function ToolsPage() {
                                 )}
 
                                 <div style={{ marginBottom: 16, fontSize: 14 }}>
-                                    <strong>{importPreview.length}</strong> {t('tools.rows_to_import')}
+                                    <strong>{importSelected.size}</strong> of {importPreview.length} {t('tools.rows_to_import')}
                                 </div>
 
                                 <div style={{ maxHeight: 400, overflowY: 'auto', border: '1px solid #eee', borderRadius: 8 }}>
                                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                                         <thead>
                                             <tr style={{ background: '#f5f5f5' }}>
+                                                <th style={{ padding: 8, textAlign: 'center', borderBottom: '1px solid #eee', width: 40 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={importSelected.size === importPreview.length && importPreview.length > 0}
+                                                        onChange={(e) => {
+                                                            if (e.target.checked) {
+                                                                setImportSelected(new Set(importPreview.map((_, i) => i)));
+                                                            } else {
+                                                                setImportSelected(new Set());
+                                                            }
+                                                        }}
+                                                        style={{ cursor: 'pointer' }}
+                                                    />
+                                                </th>
                                                 <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Type</th>
                                                 <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Date</th>
                                                 <th style={{ padding: 8, textAlign: 'left', borderBottom: '1px solid #eee' }}>Details</th>
@@ -1340,7 +1363,23 @@ export default function ToolsPage() {
                                                 };
 
                                                 return (
-                                                    <tr key={i}>
+                                                    <tr key={i} style={{ opacity: importSelected.has(i) ? 1 : 0.5 }}>
+                                                        <td style={{ padding: 8, borderBottom: '1px solid #eee', textAlign: 'center' }}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={importSelected.has(i)}
+                                                                onChange={(e) => {
+                                                                    const newSelected = new Set(importSelected);
+                                                                    if (e.target.checked) {
+                                                                        newSelected.add(i);
+                                                                    } else {
+                                                                        newSelected.delete(i);
+                                                                    }
+                                                                    setImportSelected(newSelected);
+                                                                }}
+                                                                style={{ cursor: 'pointer' }}
+                                                            />
+                                                        </td>
                                                         <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                                                             {EVENT_DEFS.find(d => d.type === row.event_type)?.emoji} {row.event_type}
                                                         </td>
@@ -1378,7 +1417,7 @@ export default function ToolsPage() {
                                     </button>
                                     <button
                                         onClick={handleImport}
-                                        disabled={importing || importPreview.length === 0}
+                                        disabled={importing || importSelected.size === 0}
                                         style={{
                                             padding: '12px 24px',
                                             borderRadius: 8,
