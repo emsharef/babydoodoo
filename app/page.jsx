@@ -6,7 +6,7 @@ import { useLanguage } from '@/components/LanguageContext';
 import BottomSheet from '@/components/BottomSheet';
 import IconButton from '@/components/IconButton';
 import { EVENT_DEFS as BASE_EVENT_DEFS, applyButtonConfig } from '@/lib/events';
-import { IconFilter } from '@tabler/icons-react';
+import { IconFilter, IconPencil } from '@tabler/icons-react';
 
 function toDateTimeLocalString(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -386,6 +386,19 @@ export default function LogPage() {
     if (editingEvent?.id === id) { setSheetOpen(false); setEditingEvent(null); setActiveType(null); }
   }
 
+  function openEditEvent(ev) {
+    if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot edit events.');
+    const type = ev.event_type;
+    setActiveType(type);
+    // Load existing meta data, with notes extracted to top level
+    const existingMeta = ev.meta || {};
+    const notes = extractNotes(existingMeta);
+    setMetaDraft({ ...existingMeta, notes });
+    setEditingEvent(ev);
+    setOverrideTimestamp(toDateTimeLocalString(new Date(ev.occurred_at)));
+    setSheetOpen(true);
+  }
+
   async function saveMeta() {
     if (!editingEvent) return;
     if (role === 'viewer') return alert(t('share.viewer_no_edit') || 'Viewers cannot edit events.');
@@ -544,20 +557,38 @@ export default function LogPage() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <time style={{ whiteSpace: 'nowrap', color: '#666', fontSize: 13 }}>{new Date(ev.occurred_at).toLocaleString()}</time>
                         {role !== 'viewer' && (
-                          <button
-                            aria-label="Delete"
-                            title="Delete"
-                            onClick={() => deleteEvent(ev.id)}
-                            style={{
-                              opacity: showTrash(ev.id) ? 1 : 0,
-                              transition: 'opacity .15s ease',
-                              padding: '6px 8px',
-                              borderRadius: 8,
-                              border: '1px solid #e5e5e5',
-                              background: '#fff',
-                              cursor: 'pointer'
-                            }}
-                          >🗑️</button>
+                          <>
+                            <button
+                              aria-label="Edit"
+                              title="Edit"
+                              onClick={() => openEditEvent(ev)}
+                              style={{
+                                opacity: showTrash(ev.id) ? 1 : 0,
+                                transition: 'opacity .15s ease',
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                border: '1px solid #e5e5e5',
+                                background: '#fff',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                            ><IconPencil size={16} stroke={1.5} /></button>
+                            <button
+                              aria-label="Delete"
+                              title="Delete"
+                              onClick={() => deleteEvent(ev.id)}
+                              style={{
+                                opacity: showTrash(ev.id) ? 1 : 0,
+                                transition: 'opacity .15s ease',
+                                padding: '6px 8px',
+                                borderRadius: 8,
+                                border: '1px solid #e5e5e5',
+                                background: '#fff',
+                                cursor: 'pointer'
+                              }}
+                            >🗑️</button>
+                          </>
                         )}
                       </div>
                     </div>
