@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Gemini API configuration
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || 'AIzaSyD0y0WSew3hSqN_CRa3MeJuOz1q8Y5-g5k';
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODEL = 'gemini-3-flash-preview';
 
 const BodySchema = z.object({
