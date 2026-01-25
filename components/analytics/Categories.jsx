@@ -215,7 +215,7 @@ function HealthCategory({ data }) {
               {data.medicines.slice(-8).reverse().map(item => (
                 <li key={item.id} style={{ padding: '10px 12px', border: '1px solid #ececf2', borderRadius: 10, background: '#fef9f5' }}>
                   <strong>{item.name}</strong> {item.dose ? `· ${item.dose}${item.unit}` : ''}<br />
-                  <span style={{ fontSize: 12, color: '#666' }}>{t(`val.${item.route}`) || item.route || 'route ?'}</span><br />
+                  <span style={{ fontSize: 12, color: '#666' }}>{t(`val.${item.route?.toLowerCase()}`) || item.route || 'route ?'}</span><br />
                   <span style={{ fontSize: 12, color: '#666' }}>{new Date(item.occurred_at).toLocaleString()}</span>
                 </li>
               ))}
