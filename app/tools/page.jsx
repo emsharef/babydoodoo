@@ -1315,7 +1315,18 @@ export default function ToolsPage() {
                                             />
                                             {photoAnalyzing ? (
                                                 <div style={{ color: '#4caf50' }}>
-                                                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔄</div>
+                                                    <div style={{
+                                                        width: 32,
+                                                        height: 32,
+                                                        marginBottom: 8,
+                                                        marginLeft: 'auto',
+                                                        marginRight: 'auto',
+                                                        border: '3px solid #e8f5e9',
+                                                        borderTop: '3px solid #4caf50',
+                                                        borderRadius: '50%',
+                                                        animation: 'spin 1s linear infinite'
+                                                    }} />
+                                                    <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
                                                     <div style={{ fontWeight: 600 }}>{t('tools.analyzing')}</div>
                                                 </div>
                                             ) : (
