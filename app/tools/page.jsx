@@ -551,7 +551,7 @@ export default function ToolsPage() {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (evt) => {
+        reader.onload = async (evt) => {
             try {
                 const data = evt.target.result;
                 const workbook = XLSX.read(data, { type: 'binary' });
@@ -594,8 +594,37 @@ export default function ToolsPage() {
                     });
                 });
 
+                // Check for duplicates against existing events
+                if (preview.length > 0 && selectedBabyId) {
+                    const eventDates = preview.map(e => new Date(e.occurred_at));
+                    const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000);
+                    const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000);
+
+                    const { data: existingEvents } = await supabase
+                        .from('events')
+                        .select('event_type, occurred_at')
+                        .eq('baby_id', selectedBabyId)
+                        .gte('occurred_at', minDate.toISOString())
+                        .lte('occurred_at', maxDate.toISOString());
+
+                    // Mark duplicates
+                    preview.forEach(item => {
+                        const eventTime = new Date(item.occurred_at).getTime();
+                        item._isDuplicate = existingEvents?.some(existing => {
+                            if (existing.event_type !== item.event_type) return false;
+                            const existingTime = new Date(existing.occurred_at).getTime();
+                            const diffMinutes = Math.abs(eventTime - existingTime) / (1000 * 60);
+                            return diffMinutes <= 30;
+                        }) || false;
+                    });
+                }
+
                 setImportPreview(preview);
-                setImportSelected(new Set(preview.map((_, i) => i))); // Select all by default
+                // Select all non-duplicates by default
+                const nonDuplicateIndices = preview
+                    .map((item, i) => item._isDuplicate ? null : i)
+                    .filter(i => i !== null);
+                setImportSelected(new Set(nonDuplicateIndices));
                 setImportErrors(errors);
                 setImportStep('preview');
             } catch (err) {
@@ -742,16 +771,45 @@ export default function ToolsPage() {
                     return;
                 }
 
-                // Format events for preview
-                const preview = events.map((e, idx) => ({
-                    event_type: e.event_type,
-                    occurred_at: e.occurred_at,
-                    meta: e.meta,
-                    _rowNum: idx + 1,
-                }));
+                // Check for duplicates against existing events
+                // Fetch existing events for this baby within a reasonable time range
+                const eventDates = events.map(e => new Date(e.occurred_at));
+                const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000); // 1 hour before earliest
+                const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000); // 1 hour after latest
+
+                const { data: existingEvents } = await supabase
+                    .from('events')
+                    .select('event_type, occurred_at')
+                    .eq('baby_id', selectedBabyId)
+                    .gte('occurred_at', minDate.toISOString())
+                    .lte('occurred_at', maxDate.toISOString());
+
+                // Format events for preview and check for duplicates
+                const preview = events.map((e, idx) => {
+                    // Check if a similar event exists within 30 minutes
+                    const eventTime = new Date(e.occurred_at).getTime();
+                    const isDuplicate = existingEvents?.some(existing => {
+                        if (existing.event_type !== e.event_type) return false;
+                        const existingTime = new Date(existing.occurred_at).getTime();
+                        const diffMinutes = Math.abs(eventTime - existingTime) / (1000 * 60);
+                        return diffMinutes <= 30;
+                    }) || false;
+
+                    return {
+                        event_type: e.event_type,
+                        occurred_at: e.occurred_at,
+                        meta: e.meta,
+                        _rowNum: idx + 1,
+                        _isDuplicate: isDuplicate,
+                    };
+                });
 
                 setImportPreview(preview);
-                setImportSelected(new Set(preview.map((_, i) => i))); // Select all by default
+                // Select all non-duplicates by default
+                const nonDuplicateIndices = preview
+                    .map((item, i) => item._isDuplicate ? null : i)
+                    .filter(i => i !== null);
+                setImportSelected(new Set(nonDuplicateIndices));
                 setImportStep('preview');
             } catch (err) {
                 console.error('Photo analysis error:', err);
@@ -1142,141 +1200,284 @@ export default function ToolsPage() {
                     <div style={{ padding: 24, background: '#fff', borderRadius: 16, border: '1px solid #eee' }}>
                         {importStep === 'upload' && (
                             <>
-                                <h3 style={{ margin: '0 0 16px' }}>{t('tools.import_desc')}</h3>
-                                <p style={{ fontSize: 14, color: '#666', marginBottom: 16 }}>
-                                    {t('tools.import_instructions')}
-                                </p>
-
-                                <button
-                                    onClick={generateTemplate}
-                                    style={{
-                                        padding: '10px 16px',
-                                        borderRadius: 8,
-                                        border: '1px solid #4f7cff',
-                                        background: '#fff',
-                                        color: '#4f7cff',
-                                        fontWeight: 600,
-                                        cursor: 'pointer',
-                                        marginBottom: 20
-                                    }}
-                                >
-                                    📄 {t('tools.download_template')}
-                                </button>
-
-                                <div style={{ marginTop: 16, marginBottom: 16 }}>
-                                    <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
-                                        {t('tools.timezone')}
-                                    </label>
-                                    <select
-                                        value={importTimezone}
-                                        onChange={(e) => setImportTimezone(e.target.value)}
-                                        style={{
-                                            padding: '10px 12px',
-                                            borderRadius: 10,
-                                            border: '1px solid #ccc',
-                                            fontSize: 14,
-                                            width: '100%',
-                                            maxWidth: 300
-                                        }}
-                                    >
-                                        {TIMEZONE_OPTIONS.map(tz => (
-                                            <option key={tz.value} value={tz.value}>{tz.label}</option>
-                                        ))}
-                                    </select>
-                                    <p style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                                        {t('tools.timezone_hint')}
-                                    </p>
-                                </div>
-
-                                <div style={{ marginTop: 16 }}>
-                                    <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
-                                        {t('tools.select_file')}
-                                    </label>
-                                    <input
-                                        ref={fileInputRef}
-                                        type="file"
-                                        accept=".csv,.xlsx,.xls"
-                                        onChange={handleFileSelect}
-                                        style={{
-                                            padding: '10px',
-                                            border: '2px dashed #ccc',
-                                            borderRadius: 10,
-                                            width: '100%',
-                                            cursor: 'pointer'
-                                        }}
-                                    />
-                                </div>
-
-                                {/* Photo Import Section */}
-                                <div style={{ marginTop: 24, paddingTop: 24, borderTop: '1px solid #eee' }}>
-                                    <h4 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 600 }}>
-                                        📷 {t('tools.or_upload_photo')}
-                                    </h4>
-                                    <p style={{ fontSize: 13, color: '#666', marginBottom: 16 }}>
-                                        {t('tools.photo_import_desc')}
-                                    </p>
-
-                                    <div style={{ marginBottom: 16 }}>
-                                        <label style={{ display: 'block', marginBottom: 8, fontSize: 14, fontWeight: 500 }}>
-                                            {t('tools.date_hint')}
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={photoDateHint}
-                                            onChange={(e) => setPhotoDateHint(e.target.value)}
-                                            style={{
-                                                padding: '10px 12px',
-                                                borderRadius: 10,
-                                                border: '1px solid #ccc',
-                                                fontSize: 14,
-                                                width: '100%',
-                                                maxWidth: 200
-                                            }}
-                                        />
-                                        <p style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
-                                            {t('tools.date_hint_desc')}
-                                        </p>
-                                    </div>
-
-                                    <div style={{ position: 'relative' }}>
-                                        <input
-                                            ref={photoInputRef}
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={handlePhotoUpload}
-                                            disabled={photoAnalyzing}
-                                            style={{
-                                                padding: '10px',
-                                                border: '2px dashed #a5d6a7',
-                                                borderRadius: 10,
-                                                width: '100%',
-                                                cursor: photoAnalyzing ? 'not-allowed' : 'pointer',
-                                                background: '#f1f8e9',
-                                                opacity: photoAnalyzing ? 0.6 : 1
-                                            }}
-                                        />
-                                        {photoAnalyzing && (
+                                {/* Two-card layout for import options */}
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                                    gap: 20,
+                                    marginBottom: 24
+                                }}>
+                                    {/* Photo Import Card */}
+                                    <div style={{
+                                        padding: 24,
+                                        borderRadius: 16,
+                                        border: '2px solid #e8f5e9',
+                                        background: 'linear-gradient(135deg, #f1f8e9 0%, #fff 100%)',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 12,
+                                            marginBottom: 8
+                                        }}>
                                             <div style={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 0,
+                                                width: 44,
+                                                height: 44,
+                                                borderRadius: 12,
+                                                background: '#4caf50',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                background: 'rgba(255,255,255,0.9)',
-                                                borderRadius: 10,
-                                                fontSize: 14,
-                                                fontWeight: 500,
-                                                color: '#4caf50'
+                                                fontSize: 22,
+                                                flexShrink: 0
                                             }}>
-                                                <span style={{ marginRight: 8 }}>🔄</span>
-                                                {t('tools.analyzing')}
+                                                📷
                                             </div>
-                                        )}
+                                            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#2e7d32' }}>
+                                                {t('tools.photo_import')}
+                                            </h3>
+                                        </div>
+
+                                        <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.5, minHeight: 40 }}>
+                                            {t('tools.photo_import_desc')}
+                                        </p>
+
+                                        <div
+                                            style={{
+                                                position: 'relative',
+                                                border: '2px dashed #81c784',
+                                                borderRadius: 12,
+                                                padding: 32,
+                                                textAlign: 'center',
+                                                background: '#fff',
+                                                cursor: photoAnalyzing ? 'not-allowed' : 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                opacity: photoAnalyzing ? 0.7 : 1,
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                minHeight: 140
+                                            }}
+                                            onClick={() => !photoAnalyzing && photoInputRef.current?.click()}
+                                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#4caf50'; e.currentTarget.style.background = '#f1f8e9'; }}
+                                            onDragLeave={(e) => { e.currentTarget.style.borderColor = '#81c784'; e.currentTarget.style.background = '#fff'; }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.currentTarget.style.borderColor = '#81c784';
+                                                e.currentTarget.style.background = '#fff';
+                                                const file = e.dataTransfer.files?.[0];
+                                                if (file && file.type.startsWith('image/')) {
+                                                    const dataTransfer = new DataTransfer();
+                                                    dataTransfer.items.add(file);
+                                                    photoInputRef.current.files = dataTransfer.files;
+                                                    handlePhotoUpload({ target: { files: dataTransfer.files } });
+                                                }
+                                            }}
+                                        >
+                                            <input
+                                                ref={photoInputRef}
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={handlePhotoUpload}
+                                                disabled={photoAnalyzing}
+                                                style={{ display: 'none' }}
+                                            />
+                                            {photoAnalyzing ? (
+                                                <div style={{ color: '#4caf50' }}>
+                                                    <div style={{ fontSize: 32, marginBottom: 8 }}>🔄</div>
+                                                    <div style={{ fontWeight: 600 }}>{t('tools.analyzing')}</div>
+                                                </div>
+                                            ) : (
+                                                <>
+                                                    <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.8 }}>📸</div>
+                                                    <div style={{ fontWeight: 600, color: '#2e7d32', marginBottom: 4 }}>
+                                                        {t('tools.drop_or_click') || 'Drop image or click to upload'}
+                                                    </div>
+                                                    <div style={{ fontSize: 12, color: '#888' }}>
+                                                        JPG, PNG, HEIC
+                                                    </div>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* CSV Import Card */}
+                                    <div style={{
+                                        padding: 24,
+                                        borderRadius: 16,
+                                        border: '2px solid #e3f2fd',
+                                        background: 'linear-gradient(135deg, #e3f2fd 0%, #fff 100%)',
+                                        display: 'flex',
+                                        flexDirection: 'column'
+                                    }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 12,
+                                            marginBottom: 8
+                                        }}>
+                                            <div style={{
+                                                width: 44,
+                                                height: 44,
+                                                borderRadius: 12,
+                                                background: '#2196f3',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                fontSize: 22,
+                                                flexShrink: 0
+                                            }}>
+                                                📄
+                                            </div>
+                                            <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#1565c0' }}>
+                                                {t('tools.csv_import') || 'From Spreadsheet'}
+                                            </h3>
+                                        </div>
+
+                                        <p style={{ fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 1.5, minHeight: 40 }}>
+                                            {t('tools.csv_import_desc') || 'Import from CSV or Excel file exported from another app'}
+                                        </p>
+
+                                        <div
+                                            style={{
+                                                border: '2px dashed #90caf9',
+                                                borderRadius: 12,
+                                                padding: 32,
+                                                textAlign: 'center',
+                                                background: '#fff',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                flex: 1,
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                minHeight: 140
+                                            }}
+                                            onClick={() => fileInputRef.current?.click()}
+                                            onDragOver={(e) => { e.preventDefault(); e.currentTarget.style.borderColor = '#2196f3'; e.currentTarget.style.background = '#e3f2fd'; }}
+                                            onDragLeave={(e) => { e.currentTarget.style.borderColor = '#90caf9'; e.currentTarget.style.background = '#fff'; }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.currentTarget.style.borderColor = '#90caf9';
+                                                e.currentTarget.style.background = '#fff';
+                                                const file = e.dataTransfer.files?.[0];
+                                                if (file) {
+                                                    const dataTransfer = new DataTransfer();
+                                                    dataTransfer.items.add(file);
+                                                    fileInputRef.current.files = dataTransfer.files;
+                                                    handleFileSelect({ target: { files: dataTransfer.files } });
+                                                }
+                                            }}
+                                        >
+                                            <input
+                                                ref={fileInputRef}
+                                                type="file"
+                                                accept=".csv,.xlsx,.xls"
+                                                onChange={handleFileSelect}
+                                                style={{ display: 'none' }}
+                                            />
+                                            <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.8 }}>📊</div>
+                                            <div style={{ fontWeight: 600, color: '#1565c0', marginBottom: 4 }}>
+                                                {t('tools.drop_or_click_csv') || 'Drop file or click to upload'}
+                                            </div>
+                                            <div style={{ fontSize: 12, color: '#888' }}>
+                                                CSV, XLSX, XLS
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={generateTemplate}
+                                            style={{
+                                                marginTop: 12,
+                                                padding: '6px 12px',
+                                                borderRadius: 8,
+                                                border: '1px solid #90caf9',
+                                                background: '#fff',
+                                                color: '#1976d2',
+                                                fontWeight: 500,
+                                                cursor: 'pointer',
+                                                fontSize: 13,
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: 6
+                                            }}
+                                        >
+                                            ⬇️ {t('tools.download_template')}
+                                        </button>
                                     </div>
                                 </div>
+
+                                {/* Shared Settings */}
+                                <details style={{
+                                    background: '#f8f9fa',
+                                    borderRadius: 12,
+                                    padding: '12px 16px',
+                                    border: '1px solid #e9ecef'
+                                }}>
+                                    <summary style={{
+                                        cursor: 'pointer',
+                                        fontWeight: 600,
+                                        fontSize: 14,
+                                        color: '#495057',
+                                        listStyle: 'none'
+                                    }}>
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                            ⚙️ {t('tools.advanced_settings') || 'Advanced Settings'}
+                                            <span style={{ fontSize: 10, color: '#adb5bd' }}>▼</span>
+                                        </span>
+                                    </summary>
+                                    <div style={{ marginTop: 16 }}>
+                                        <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
+                                            {t('tools.timezone')}
+                                        </label>
+                                        <select
+                                            value={importTimezone}
+                                            onChange={(e) => setImportTimezone(e.target.value)}
+                                            style={{
+                                                padding: '10px 12px',
+                                                borderRadius: 8,
+                                                border: '1px solid #ced4da',
+                                                fontSize: 14,
+                                                width: '100%',
+                                                maxWidth: 300,
+                                                background: '#fff'
+                                            }}
+                                        >
+                                            {TIMEZONE_OPTIONS.map(tz => (
+                                                <option key={tz.value} value={tz.value}>{tz.label}</option>
+                                            ))}
+                                        </select>
+                                        <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6 }}>
+                                            {t('tools.timezone_hint')}
+                                        </p>
+
+                                        <div style={{ marginTop: 16 }}>
+                                            <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
+                                                {t('tools.date_hint')} ({t('tools.for_photo_import') || 'for photo import'})
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={photoDateHint}
+                                                onChange={(e) => setPhotoDateHint(e.target.value)}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid #ced4da',
+                                                    fontSize: 14,
+                                                    background: '#fff'
+                                                }}
+                                            />
+                                            <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6 }}>
+                                                {t('tools.date_hint_desc')}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </details>
                             </>
                         )}
 
@@ -1363,7 +1564,10 @@ export default function ToolsPage() {
                                                 };
 
                                                 return (
-                                                    <tr key={i} style={{ opacity: importSelected.has(i) ? 1 : 0.5 }}>
+                                                    <tr key={i} style={{
+                                                        opacity: importSelected.has(i) ? 1 : 0.5,
+                                                        background: row._isDuplicate ? '#fff8e1' : 'transparent'
+                                                    }}>
                                                         <td style={{ padding: 8, borderBottom: '1px solid #eee', textAlign: 'center' }}>
                                                             <input
                                                                 type="checkbox"
@@ -1382,6 +1586,19 @@ export default function ToolsPage() {
                                                         </td>
                                                         <td style={{ padding: 8, borderBottom: '1px solid #eee' }}>
                                                             {EVENT_DEFS.find(d => d.type === row.event_type)?.emoji} {row.event_type}
+                                                            {row._isDuplicate && (
+                                                                <span style={{
+                                                                    marginLeft: 6,
+                                                                    fontSize: 11,
+                                                                    padding: '2px 6px',
+                                                                    background: '#ffb74d',
+                                                                    color: '#5d4037',
+                                                                    borderRadius: 4,
+                                                                    fontWeight: 600
+                                                                }}>
+                                                                    {t('tools.duplicate')}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td style={{ padding: 8, borderBottom: '1px solid #eee', whiteSpace: 'nowrap' }}>
                                                             {new Date(row.occurred_at).toLocaleString()}
