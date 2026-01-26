@@ -181,6 +181,9 @@ function MetaInline({ ev, t }) {
 export default function LogPage() {
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
   const { user, babies, selectedBabyId, refreshBabies, role } = useBaby();
   const { t } = useLanguage();
   const [events, setEvents] = useState([]);
@@ -211,8 +214,6 @@ export default function LogPage() {
       setOverrideTimestamp('');
     }
   }, [editingEvent?.id, editingEvent?.occurred_at]);
-
-  const redirectPath = process.env.NEXT_PUBLIC_AUTH_REDIRECT_PATH || '/auth/callback';
 
   useEffect(() => { if (user) refreshBabies(); }, [user, refreshBabies]);
   const selectedBaby = useMemo(() => babies.find(b => b.id === selectedBabyId) || null, [babies, selectedBabyId]);
@@ -422,16 +423,41 @@ export default function LogPage() {
     setOverrideTimestamp('');
   }
 
-  async function sendMagicLink(e) {
+  async function sendOtpCode(e) {
     e.preventDefault();
     setSending(true);
     try {
-      const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}${redirectPath}` : redirectPath;
-      const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo, shouldCreateUser: true } });
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true }
+      });
       if (error) throw error;
-      alert(t('log.magic_link_sent'));
+      setOtpSent(true);
     } catch (err) { console.error(err); alert(t('log.failed_send')); }
     finally { setSending(false); }
+  }
+
+  async function verifyOtpCode(e) {
+    e.preventDefault();
+    setVerifying(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email,
+        token: otpCode,
+        type: 'email'
+      });
+      if (error) throw error;
+      // Auth state change listener will handle the redirect
+    } catch (err) {
+      console.error(err);
+      alert(t('log.wrong_code'));
+    }
+    finally { setVerifying(false); }
+  }
+
+  function resetOtpFlow() {
+    setOtpSent(false);
+    setOtpCode('');
   }
 
   const showTrash = (id) => hoverId === id && role !== 'viewer';
@@ -445,11 +471,35 @@ export default function LogPage() {
     return (
       <div style={{ padding: 24 }}>
         <h2>{t('log.welcome')}</h2>
-        <p>{t('log.enter_email')}</p>
-        <form onSubmit={sendMagicLink} style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-          <input type="email" required value={email} placeholder="you@example.com" onChange={(e) => setEmail(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', minWidth: 260, fontSize: 16 }} />
-          <button type="submit" onClick={sendMagicLink} style={{ padding: '12px 14px', borderRadius: 12, background: '#c7f0d8', border: '1px solid #73c69c', cursor: 'pointer', fontWeight: 700 }}>{sending ? t('log.sending') : t('log.send_magic_link')}</button>
-        </form>
+        {!otpSent ? (
+          <>
+            <p>{t('log.enter_email')}</p>
+            <form onSubmit={sendOtpCode} style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+              <input type="email" required value={email} placeholder="you@example.com" onChange={(e) => setEmail(e.target.value)} style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', minWidth: 260, fontSize: 16 }} />
+              <button type="submit" disabled={sending} style={{ padding: '12px 14px', borderRadius: 12, background: '#c7f0d8', border: '1px solid #73c69c', cursor: sending ? 'wait' : 'pointer', fontWeight: 700, opacity: sending ? 0.7 : 1 }}>{sending ? t('log.sending') : t('log.send_code')}</button>
+            </form>
+          </>
+        ) : (
+          <>
+            <p style={{ color: '#059669', marginBottom: 8 }}>{t('log.code_sent')}</p>
+            <p>{t('log.enter_code')}</p>
+            <form onSubmit={verifyOtpCode} style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={6}
+                required
+                value={otpCode}
+                placeholder="000000"
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                style={{ padding: '10px 12px', borderRadius: 10, border: '1px solid #ccc', width: 120, fontSize: 20, letterSpacing: 4, textAlign: 'center', fontFamily: 'monospace' }}
+              />
+              <button type="submit" disabled={verifying || otpCode.length !== 6} style={{ padding: '12px 14px', borderRadius: 12, background: '#c7f0d8', border: '1px solid #73c69c', cursor: (verifying || otpCode.length !== 6) ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: (verifying || otpCode.length !== 6) ? 0.7 : 1 }}>{verifying ? t('log.verifying') : t('log.verify')}</button>
+            </form>
+            <button onClick={resetOtpFlow} style={{ marginTop: 12, padding: '8px 12px', borderRadius: 8, border: '1px solid #ddd', background: '#f5f5f5', cursor: 'pointer', fontSize: 14 }}>{t('log.try_again')}</button>
+          </>
+        )}
       </div>
     );
   }
