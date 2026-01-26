@@ -704,15 +704,17 @@ export default function ToolsPage() {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        // Check file type
-        if (!file.type.startsWith('image/')) {
+        // Check file type - also accept files with empty type but image extension (iOS HEIC)
+        const isImageType = file.type.startsWith('image/');
+        const hasImageExtension = /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name);
+        if (!isImageType && !hasImageExtension) {
             alert('Please select an image file');
             return;
         }
 
-        // Check file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('File too large. Maximum size is 10MB.');
+        // Check file size (max 20MB for HEIC which can be large)
+        if (file.size > 20 * 1024 * 1024) {
+            alert('File too large. Maximum size is 20MB.');
             return;
         }
 
@@ -727,104 +729,129 @@ export default function ToolsPage() {
             return;
         }
 
-        // Convert to base64
-        const reader = new FileReader();
-        reader.onload = async (evt) => {
-            try {
-                const base64 = evt.target.result.split(',')[1];
-                const mediaType = file.type || 'image/jpeg';
+        // Convert image to JPEG using canvas (handles HEIC and other formats)
+        const convertToJpeg = (file) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    // Calculate scaled dimensions (max 2000px on longest side to reduce size)
+                    const maxDim = 2000;
+                    let width = img.width;
+                    let height = img.height;
+                    if (width > maxDim || height > maxDim) {
+                        if (width > height) {
+                            height = Math.round((height * maxDim) / width);
+                            width = maxDim;
+                        } else {
+                            width = Math.round((width * maxDim) / height);
+                            height = maxDim;
+                        }
+                    }
 
-                // Call vision API
-                const res = await fetch('/api/vision/analyze', {
-                    method: 'POST',
-                    headers: {
-                        'content-type': 'application/json',
-                        'authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify({
-                        image: base64,
-                        media_type: mediaType,
-                        date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
-                        timezone: importTimezone === 'local'
-                            ? (() => {
-                                // Get browser's timezone offset and format as ±HH:MM
-                                const offset = new Date().getTimezoneOffset();
-                                const sign = offset <= 0 ? '+' : '-';
-                                const hrs = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
-                                const mins = String(Math.abs(offset) % 60).padStart(2, '0');
-                                return `${sign}${hrs}:${mins}`;
-                            })()
-                            : importTimezone
-                    })
-                });
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
 
-                if (!res.ok) {
-                    const err = await res.json().catch(() => ({}));
-                    throw new Error(err.error || t('tools.analysis_failed'));
-                }
+                    // Convert to JPEG base64 (0.85 quality for good balance)
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                    const base64 = dataUrl.split(',')[1];
+                    resolve(base64);
+                };
+                img.onerror = () => reject(new Error('Failed to load image'));
 
-                const { events } = await res.json();
+                // Create object URL from file
+                img.src = URL.createObjectURL(file);
+            });
+        };
 
-                if (!events || events.length === 0) {
-                    setImportErrors([{ row: 0, message: 'No events could be extracted from the photo. Try a clearer image or use CSV import.' }]);
-                    setPhotoAnalyzing(false);
-                    return;
-                }
+        try {
+            const base64 = await convertToJpeg(file);
 
-                // Check for duplicates against existing events
-                // Fetch existing events for this baby within a reasonable time range
-                const eventDates = events.map(e => new Date(e.occurred_at));
-                const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000); // 1 hour before earliest
-                const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000); // 1 hour after latest
+            // Call vision API (always send as JPEG since we converted)
+            const res = await fetch('/api/vision/analyze', {
+                method: 'POST',
+                headers: {
+                    'content-type': 'application/json',
+                    'authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    image: base64,
+                    media_type: 'image/jpeg',
+                    date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
+                    timezone: importTimezone === 'local'
+                        ? (() => {
+                            // Get browser's timezone offset and format as ±HH:MM
+                            const offset = new Date().getTimezoneOffset();
+                            const sign = offset <= 0 ? '+' : '-';
+                            const hrs = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+                            const mins = String(Math.abs(offset) % 60).padStart(2, '0');
+                            return `${sign}${hrs}:${mins}`;
+                        })()
+                        : importTimezone
+                })
+            });
 
-                const { data: existingEvents } = await supabase
-                    .from('events')
-                    .select('event_type, occurred_at')
-                    .eq('baby_id', selectedBabyId)
-                    .gte('occurred_at', minDate.toISOString())
-                    .lte('occurred_at', maxDate.toISOString());
-
-                // Format events for preview and check for duplicates
-                const preview = events.map((e, idx) => {
-                    // Check if a similar event exists within 30 minutes
-                    const eventTime = new Date(e.occurred_at).getTime();
-                    const isDuplicate = existingEvents?.some(existing => {
-                        if (existing.event_type !== e.event_type) return false;
-                        const existingTime = new Date(existing.occurred_at).getTime();
-                        const diffMinutes = Math.abs(eventTime - existingTime) / (1000 * 60);
-                        return diffMinutes <= 30;
-                    }) || false;
-
-                    return {
-                        event_type: e.event_type,
-                        occurred_at: e.occurred_at,
-                        meta: e.meta,
-                        _rowNum: idx + 1,
-                        _isDuplicate: isDuplicate,
-                    };
-                });
-
-                setImportPreview(preview);
-                // Select all non-duplicates by default
-                const nonDuplicateIndices = preview
-                    .map((item, i) => item._isDuplicate ? null : i)
-                    .filter(i => i !== null);
-                setImportSelected(new Set(nonDuplicateIndices));
-                setImportStep('preview');
-            } catch (err) {
-                console.error('Photo analysis error:', err);
-                alert(t('tools.analysis_failed') + ': ' + err.message);
-            } finally {
-                setPhotoAnalyzing(false);
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error || t('tools.analysis_failed'));
             }
-        };
 
-        reader.onerror = () => {
-            alert('Failed to read file');
+            const { events } = await res.json();
+
+            if (!events || events.length === 0) {
+                setImportErrors([{ row: 0, message: 'No events could be extracted from the photo. Try a clearer image or use CSV import.' }]);
+                setPhotoAnalyzing(false);
+                return;
+            }
+
+            // Check for duplicates against existing events
+            // Fetch existing events for this baby within a reasonable time range
+            const eventDates = events.map(e => new Date(e.occurred_at));
+            const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000); // 1 hour before earliest
+            const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000); // 1 hour after latest
+
+            const { data: existingEvents } = await supabase
+                .from('events')
+                .select('event_type, occurred_at')
+                .eq('baby_id', selectedBabyId)
+                .gte('occurred_at', minDate.toISOString())
+                .lte('occurred_at', maxDate.toISOString());
+
+            // Format events for preview and check for duplicates
+            const preview = events.map((e, idx) => {
+                // Check if a similar event exists within 30 minutes
+                const eventTime = new Date(e.occurred_at).getTime();
+                const isDuplicate = existingEvents?.some(existing => {
+                    if (existing.event_type !== e.event_type) return false;
+                    const existingTime = new Date(existing.occurred_at).getTime();
+                    const diffMinutes = Math.abs(eventTime - existingTime) / (1000 * 60);
+                    return diffMinutes <= 30;
+                }) || false;
+
+                return {
+                    event_type: e.event_type,
+                    occurred_at: e.occurred_at,
+                    meta: e.meta,
+                    _rowNum: idx + 1,
+                    _isDuplicate: isDuplicate,
+                };
+            });
+
+            setImportPreview(preview);
+            // Select all non-duplicates by default
+            const nonDuplicateIndices = preview
+                .map((item, i) => item._isDuplicate ? null : i)
+                .filter(i => i !== null);
+            setImportSelected(new Set(nonDuplicateIndices));
+            setImportStep('preview');
+        } catch (err) {
+            console.error('Photo analysis error:', err);
+            alert(t('tools.analysis_failed') + ': ' + err.message);
+        } finally {
             setPhotoAnalyzing(false);
-        };
-
-        reader.readAsDataURL(file);
+        }
     }
 
     // --- Kick Counter Logic ---

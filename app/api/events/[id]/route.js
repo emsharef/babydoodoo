@@ -71,7 +71,9 @@ export async function PATCH(request, context) {
   const { data, error } = await supabase.from('events').update(updatePayload).eq('id', id.data).select('*').single();
   if (error) {
     const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events/[id]', method: 'PATCH', status: 400, ms: __ms, userId: user.id, ip: __ip });
-    return new Response(JSON.stringify({ error: error.message }), { status: 400, headers: { 'content-type': 'application/json' } });
+    console.error('PATCH /api/events error:', { code: error.code, message: error.message, details: error.details, hint: error.hint });
+    const errorMsg = error.message || error.details || `Database error: ${error.code}` || 'Unknown error';
+    return new Response(JSON.stringify({ error: errorMsg }), { status: 400, headers: { 'content-type': 'application/json' } });
   }
   const __ms = Date.now()-__start; logRequest({ id: __id, route: '/api/events/[id]', method: 'PATCH', status: 200, ms: __ms, userId: user.id, ip: __ip });
   return new Response(JSON.stringify({ event: data }), { status: 200, headers: { 'content-type': 'application/json', 'X-Request-Id': __id } });
