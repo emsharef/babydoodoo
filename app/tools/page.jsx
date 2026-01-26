@@ -199,6 +199,7 @@ export default function ToolsPage() {
     // Photo Import State
     const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
     const [photoDateHint, setPhotoDateHint] = useState(() => new Date().toISOString().slice(0, 10));
+    const [translateNotes, setTranslateNotes] = useState(false);
 
     // Common timezone options
     const TIMEZONE_OPTIONS = [
@@ -789,7 +790,8 @@ export default function ToolsPage() {
                             const mins = String(Math.abs(offset) % 60).padStart(2, '0');
                             return `${sign}${hrs}:${mins}`;
                         })()
-                        : importTimezone
+                        : importTimezone,
+                    translate_notes: translateNotes
                 })
             });
 
@@ -1512,6 +1514,23 @@ export default function ToolsPage() {
                                             />
                                             <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6 }}>
                                                 {t('tools.date_hint_desc')}
+                                            </p>
+                                        </div>
+
+                                        <div style={{ marginTop: 16 }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={translateNotes}
+                                                    onChange={(e) => setTranslateNotes(e.target.checked)}
+                                                    style={{ width: 18, height: 18, cursor: 'pointer' }}
+                                                />
+                                                <span style={{ fontSize: 13, fontWeight: 500 }}>
+                                                    {t('tools.translate_notes') || 'Translate notes to English'}
+                                                </span>
+                                            </label>
+                                            <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6, marginLeft: 26 }}>
+                                                {t('tools.translate_notes_desc') || 'Translate any notes written in a foreign language to English'}
                                             </p>
                                         </div>
                                     </div>
