@@ -15,7 +15,8 @@ const BodySchema = z.object({
   date_hint: z.string().optional(), // YYYY-MM-DD format
   media_type: z.string().optional(), // e.g., 'image/jpeg'
   timezone: z.string().optional(), // e.g., 'local', 'UTC', '-05:00'
-  translate_notes: z.boolean().optional(), // translate notes to English
+  translate_notes: z.boolean().optional(), // translate notes to user's language
+  translate_language: z.string().optional(), // target language code (e.g., 'en', 'zh')
 });
 
 const VISION_PROMPT = `You are analyzing a photo of a baby care log. Extract all events you can identify from this handwritten or printed log.
@@ -139,7 +140,7 @@ export async function POST(request) {
     });
   }
 
-  const { image, date_hint, media_type, timezone, translate_notes } = parsed.data;
+  const { image, date_hint, media_type, timezone, translate_notes, translate_language } = parsed.data;
   const dateForPrompt = date_hint || new Date().toISOString().slice(0, 10);
 
   // Detect media type from base64 if not provided
@@ -153,7 +154,9 @@ export async function POST(request) {
   // Build the prompt with optional translation instruction
   let promptText = VISION_PROMPT;
   if (translate_notes) {
-    promptText += '\n\nTRANSLATION: If any notes or text on the log are written in a language other than English, translate them to English in the "notes" field.';
+    const langNames = { en: 'English', zh: 'Chinese' };
+    const targetLang = langNames[translate_language] || 'English';
+    promptText += `\n\nTRANSLATION: If any notes or text on the log are written in a language other than ${targetLang}, translate them to ${targetLang} in the "notes" field.`;
   }
   promptText += `\n\nFALLBACK DATE (only use if NO date is visible in the image): ${dateForPrompt}`;
 

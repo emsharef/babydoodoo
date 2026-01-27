@@ -160,7 +160,7 @@ function ContractionChart({ events, t }) {
 
 export default function ToolsPage() {
     const { user, babies, selectedBabyId, role } = useBaby();
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
 
 
     const [activeTab, setActiveTab] = useState('kick'); // 'kick' or 'contraction'
@@ -199,7 +199,7 @@ export default function ToolsPage() {
     // Photo Import State
     const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
     const [photoDateHint, setPhotoDateHint] = useState(() => new Date().toISOString().slice(0, 10));
-    const [translateNotes, setTranslateNotes] = useState(false);
+    const [translateNotes, setTranslateNotes] = useState(true);
 
     // Common timezone options
     const TIMEZONE_OPTIONS = [
@@ -791,7 +791,8 @@ export default function ToolsPage() {
                             return `${sign}${hrs}:${mins}`;
                         })()
                         : importTimezone,
-                    translate_notes: translateNotes
+                    translate_notes: translateNotes,
+                    translate_language: translateNotes ? language : undefined
                 })
             });
 
