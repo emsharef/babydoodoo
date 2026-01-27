@@ -601,7 +601,7 @@ export default function LogPage() {
                     onMouseEnter={() => setHoverId(ev.id)}
                     onMouseLeave={() => setHoverId('')}
                     onTouchStart={() => onTouch(ev.id)}
-                    style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4, minWidth: 0, overflow: 'hidden' }}
+                    style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4, minWidth: 0 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
