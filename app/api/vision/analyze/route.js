@@ -46,13 +46,17 @@ DATE HANDLING (IMPORTANT):
 - Always combine visible times (e.g., "8:30") with the correct date
 - DO NOT add "Z" or any timezone suffix - just return the local time as written on the paper
 
-Metadata structures by type:
-- YumYum: { yum: { kind: "breast"|"bottle"|"formula"|"solid", quantity: "120ml", side: "L"|"R"|"B" }, notes: "optional notes" }
-- DooDoo: { doo: { consistency: "normal"|"loose"|"hard", color: "brown/yellow/green" }, notes: "optional notes" }
+Metadata structures by type (use EXACTLY these field values):
+- YumYum: { yum: { kind: "breast"|"bottle"|"formula"|"solid", quantity: "120ml", side: "left"|"right"|"both" }, notes: "optional notes" }
+- DooDoo: { doo: { consistency: "runny"|"normal"|"firm", color: "yellow"|"green"|"brown" }, notes: "optional notes" }
 - PeePee: { pee: { amount: "small"|"medium"|"large" }, notes: "optional notes" }
+- Diaper: { diaper: { kind: "wet"|"dirty"|"both"|"dry" }, notes: "optional notes" }
 - SleepStart/SleepEnd: { notes: "optional notes" }
-- Temperature: { temp: { value: 98.6, unit: "F" }, notes: "optional notes" }
-- Medicine: { medicine: { name: "medication name", dose: "dosage" }, notes: "optional notes" }
+- Temperature: { temp: { value: 98.6, unit: "F"|"C" }, notes: "optional notes" }
+- Medicine: { medicine: { name: "medication name", dose: "dosage", unit: "mg"|"ml"|"drops", route: "PO"|"Topical"|"Other" }, notes: "optional notes" }
+- Puke: { puke: { amount: "small"|"medium"|"large" }, notes: "optional notes" }
+- BabyMood: { mood: "😄"|"🙂"|"😐"|"😕"|"😢"|"😡", notes: "optional notes" }
+- Play: { play: { kind: "tummy"|"reading"|"walk"|"music"|"bath", duration_min: 10 }, notes: "optional notes" }
 - Note: { notes: "the actual note text" }
 
 IMPORTANT:
@@ -66,7 +70,7 @@ IMPORTANT:
 
 Return format example:
 [
-  { "event_type": "YumYum", "occurred_at": "2025-01-25T08:30:00", "meta": { "yum": { "kind": "breast", "side": "L" }, "notes": "fed well" } },
+  { "event_type": "YumYum", "occurred_at": "2025-01-25T08:30:00", "meta": { "yum": { "kind": "breast", "side": "left" }, "notes": "fed well" } },
   { "event_type": "Note", "occurred_at": "2025-01-25T09:00:00", "meta": { "notes": "Baby was fussy today" } }
 ]`;
 
