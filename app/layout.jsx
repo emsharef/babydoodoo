@@ -35,7 +35,7 @@ export default function RootLayout({ children }) {
       </head>
       <body style={{ fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif', background: '#f7f7fb', color: '#222' }}>
         <ClientProviders>
-          <div style={{ maxWidth: 960, margin: '24px auto', padding: '0 16px', display: 'grid', gap: 16 }}>
+          <div style={{ maxWidth: 960, margin: '24px auto', padding: '0 16px', display: 'grid', gap: 16, overflowX: 'hidden' }}>
             <header style={{ display: 'grid', gap: 8 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <h1 style={{ margin: 0, fontSize: 28, fontFamily:'Nunito, Inter, sans-serif', letterSpacing: '.3px' }}>👶💩💩 BabyDooDoo</h1>

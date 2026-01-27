@@ -521,8 +521,8 @@ export default function LogPage() {
   });
 
   return (
-    <div style={{ display: 'grid', gap: 16 }}>
-      <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12 }}>
+    <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
+      <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12, minWidth: 0 }}>
         {!selectedBaby && <p style={{ color: '#888' }}>{t('log.no_baby')}</p>}
         {/* Avoid flash: if config not loaded and no cache, show a light skeleton instead of full grid */}
         {role !== 'viewer' && (
@@ -601,7 +601,7 @@ export default function LogPage() {
                     onMouseEnter={() => setHoverId(ev.id)}
                     onMouseLeave={() => setHoverId('')}
                     onTouchStart={() => onTouch(ev.id)}
-                    style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4 }}
+                    style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4, minWidth: 0, overflow: 'hidden' }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -646,7 +646,7 @@ export default function LogPage() {
                         )}
                       </div>
                     </div>
-                    {notes ? <div style={{ color: '#555', fontSize: 13 }}>📝 {notes}</div> : null}
+                    {notes ? <div style={{ color: '#555', fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>📝 {notes}</div> : null}
                   </li>
                 )
               })}
