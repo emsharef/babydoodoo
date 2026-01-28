@@ -29,7 +29,7 @@ function Pill({ active, onClick, children }) {
 }
 
 function Chip({ children }) {
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 999, background: '#f5f5f7', border: '1px solid #e8e8ee', fontSize: 13 }}>{children}</span>;
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 999, background: '#f5f5f7', border: '1px solid #e8e8ee', fontSize: 13, whiteSpace: 'nowrap' }}>{children}</span>;
 }
 
 function QuickButtons({ values, activeValue, onSelect, format }) {
@@ -522,7 +522,7 @@ export default function LogPage() {
 
   return (
     <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
-      <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12, minWidth: 0 }}>
+      <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' }}>
         {!selectedBaby && <p style={{ color: '#888' }}>{t('log.no_baby')}</p>}
         {/* Avoid flash: if config not loaded and no cache, show a light skeleton instead of full grid */}
         {role !== 'viewer' && (
@@ -592,7 +592,7 @@ export default function LogPage() {
             </div>
           )}
           {visibleEvents.length === 0 ? <p>{t('log.no_events')}</p> : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflow: 'hidden' }}>
               {visibleEvents.map(ev => {
                 const notes = extractNotes(ev?.meta);
                 return (
@@ -603,12 +603,12 @@ export default function LogPage() {
                     onTouchStart={() => onTouch(ev.id)}
                     style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4, minWidth: 0 }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <strong>{t(`event.${ev.event_type.toLowerCase()}`) || ev.event_type}</strong>
+                        <strong style={{ whiteSpace: 'nowrap' }}>{t(`event.${ev.event_type.toLowerCase()}`) || ev.event_type}</strong>
                         <MetaInline ev={ev} t={t} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <time style={{ whiteSpace: 'nowrap', color: '#666', fontSize: 13 }}>{new Date(ev.occurred_at).toLocaleString()}</time>
                         {role !== 'viewer' && (
                           <>
@@ -646,7 +646,7 @@ export default function LogPage() {
                         )}
                       </div>
                     </div>
-                    {notes ? <div style={{ color: '#555', fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>📝 {notes}</div> : null}
+                    {notes ? <div style={{ color: '#555', fontSize: 13, overflowWrap: 'break-word', minWidth: 0 }}>📝 {notes}</div> : null}
                   </li>
                 )
               })}

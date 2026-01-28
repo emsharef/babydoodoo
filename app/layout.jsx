@@ -32,10 +32,11 @@ export default function RootLayout({ children }) {
         <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
+        <style dangerouslySetInnerHTML={{ __html: `html, body { max-width: 100vw; overflow-x: hidden; }` }} />
       </head>
       <body style={{ fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif', background: '#f7f7fb', color: '#222' }}>
         <ClientProviders>
-          <div style={{ maxWidth: 960, margin: '24px auto', padding: '0 16px', display: 'grid', gap: 16, overflowX: 'hidden' }}>
+          <div style={{ maxWidth: 960, margin: '24px auto', padding: '0 16px', display: 'grid', gap: 16 }}>
             <header style={{ display: 'grid', gap: 8 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <h1 style={{ margin: 0, fontSize: 28, fontFamily:'Nunito, Inter, sans-serif', letterSpacing: '.3px' }}>👶💩💩 BabyDooDoo</h1>
