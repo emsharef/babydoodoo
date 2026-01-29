@@ -535,7 +535,7 @@ export default function LogPage() {
   }
 
   const grid = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 12, paddingTop: 4 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(130px, 45%), 1fr))', gap: 10, paddingTop: 6 }}>
       {EVENT_DEFS.map(def => (
         <IconButton key={def.type} emoji={def.emoji} label={t(`event.${def.type.toLowerCase()}`) || def.label} color={def.bg} border={def.bd} onClick={() => logEvent(def.type)} />
       ))}
@@ -551,9 +551,9 @@ export default function LogPage() {
   });
 
   return (
-    <div style={{ display: 'grid', gap: 20, minWidth: 0 }}>
+    <div style={{ display: 'grid', gap: 20, minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
       <section style={{
-        padding: '20px',
+        padding: '16px',
         border: '1px solid rgba(255, 255, 255, 0.8)',
         borderRadius: 20,
         background: 'rgba(255, 255, 255, 0.75)',
@@ -563,6 +563,7 @@ export default function LogPage() {
         display: 'grid',
         gap: 16,
         minWidth: 0,
+        maxWidth: '100%',
         overflow: 'hidden'
       }}>
         {!selectedBaby && <p style={{ color: '#888' }}>{t('log.no_baby')}</p>}
