@@ -107,9 +107,8 @@ export default function RootLayout({ children }) {
             position: 'relative',
             zIndex: 1,
             minWidth: 0,
-            overflow: 'hidden',
           }}>
-            <header style={{ display: 'grid', gap: 12 }}>
+            <header style={{ display: 'grid', gap: 12, position: 'relative', zIndex: 50 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                 <h1 style={{
                   margin: 0,
