@@ -535,7 +535,7 @@ export default function LogPage() {
   }
 
   const grid = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px,1fr))', gap: 12 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 12, paddingTop: 4 }}>
       {EVENT_DEFS.map(def => (
         <IconButton key={def.type} emoji={def.emoji} label={t(`event.${def.type.toLowerCase()}`) || def.label} color={def.bg} border={def.bd} onClick={() => logEvent(def.type)} />
       ))}

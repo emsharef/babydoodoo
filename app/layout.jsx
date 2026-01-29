@@ -51,7 +51,7 @@ export default function RootLayout({ children }) {
         minHeight: '100vh',
         position: 'relative',
       }}>
-        {/* Decorative background elements */}
+        {/* Decorative background elements - hidden on mobile to prevent overflow */}
         <div style={{
           position: 'fixed',
           top: 0,
@@ -66,8 +66,8 @@ export default function RootLayout({ children }) {
             position: 'absolute',
             top: '10%',
             left: '5%',
-            width: 300,
-            height: 300,
+            width: 'min(300px, 40vw)',
+            height: 'min(300px, 40vw)',
             background: 'radial-gradient(circle, rgba(251,191,36,0.15) 0%, transparent 70%)',
             borderRadius: '50%',
             animation: 'pulse-soft 8s ease-in-out infinite',
@@ -76,8 +76,8 @@ export default function RootLayout({ children }) {
             position: 'absolute',
             top: '60%',
             right: '10%',
-            width: 250,
-            height: 250,
+            width: 'min(250px, 35vw)',
+            height: 'min(250px, 35vw)',
             background: 'radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 70%)',
             borderRadius: '50%',
             animation: 'pulse-soft 10s ease-in-out infinite 2s',
@@ -86,8 +86,8 @@ export default function RootLayout({ children }) {
             position: 'absolute',
             bottom: '20%',
             left: '15%',
-            width: 200,
-            height: 200,
+            width: 'min(200px, 30vw)',
+            height: 'min(200px, 30vw)',
             background: 'radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 70%)',
             borderRadius: '50%',
             animation: 'pulse-soft 12s ease-in-out infinite 4s',
@@ -102,6 +102,8 @@ export default function RootLayout({ children }) {
             gap: 20,
             position: 'relative',
             zIndex: 1,
+            minWidth: 0,
+            overflow: 'hidden',
           }}>
             <header style={{ display: 'grid', gap: 12 }}>
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>

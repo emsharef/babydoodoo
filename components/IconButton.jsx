@@ -10,14 +10,14 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
   const darkerBorder = adjustColor(border, -15);
 
   const style = {
-    padding: '16px 18px',
+    padding: '14px 12px',
     borderRadius: 16,
     background: isPressed
       ? color
       : `linear-gradient(145deg, ${lighterColor} 0%, ${color} 100%)`,
     border: `2px solid ${darkerBorder}`,
     cursor: 'pointer',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 600,
     boxShadow: isPressed
       ? `inset 0 2px 4px rgba(0,0,0,0.1)`
@@ -27,7 +27,8 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 120,
+    minWidth: 0,
+    width: '100%',
     transform: isPressed ? 'scale(0.97)' : isHovered ? 'translateY(-2px)' : 'translateY(0)',
     transition: 'all 0.15s ease-out',
     position: 'relative',
