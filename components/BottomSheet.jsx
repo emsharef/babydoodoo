@@ -2,39 +2,31 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * BottomSheet
- * - Smooth 500ms slide in/out
- * - Auto-hide after autoHideMs (if provided), cancelled on any interaction inside
- * - Clicking the handle or backdrop closes with slide-down animation
+ * BottomSheet - Redesigned with dramatic animations and better visuals
  */
-export default function BottomSheet({ open, onClose, children, autoHideMs = 5000 }) {
-  const [visible, setVisible] = useState(false);    // controls CSS class
-  const [mounted, setMounted] = useState(false);    // keep in DOM for exit anim
+export default function BottomSheet({ open, onClose, children, autoHideMs = 5000, eventType, eventColor }) {
+  const [visible, setVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const timerRef = useRef(null);
   const interactedRef = useRef(false);
 
-  // Mount/unmount handling
   useEffect(() => {
     if (open) {
       setMounted(true);
-      // Next tick to allow transition
       requestAnimationFrame(() => setVisible(true));
     } else if (mounted) {
       setVisible(false);
-      // After animation, unmount
-      const t = setTimeout(() => setMounted(false), 500);
+      const t = setTimeout(() => setMounted(false), 400);
       return () => clearTimeout(t);
     }
   }, [open, mounted]);
 
-  // Auto hide if provided and no interaction
   useEffect(() => {
     if (!open) return;
     if (!autoHideMs || autoHideMs <= 0) return;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
       if (!interactedRef.current) {
-        // trigger close path
         handleClose();
       }
     }, autoHideMs);
@@ -52,77 +44,132 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
   }
 
   function handleClose() {
-    // slide down, then onClose after 500ms
     setVisible(false);
     setTimeout(() => {
       onClose?.();
       interactedRef.current = false;
-    }, 500);
+    }, 400);
   }
 
   if (!mounted) return null;
 
+  const bgColor = eventColor?.bg || '#f8fafc';
+  const borderColor = eventColor?.bd || '#e2e8f0';
+
   return (
-    <div
-      aria-hidden={!visible}
-      onMouseDown={handleInteraction}
-      onKeyDown={handleInteraction}
-      onTouchStart={handleInteraction}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 60,
-        display: 'flex',
-        alignItems: 'flex-end',
-        background: visible ? 'rgba(15, 23, 42, 0.3)' : 'rgba(15, 23, 42, 0)',
-        backdropFilter: visible ? 'blur(4px)' : 'blur(0px)',
-        WebkitBackdropFilter: visible ? 'blur(4px)' : 'blur(0px)',
-        transition: 'all 500ms ease'
-      }}
-      onClick={(e) => {
-        // click on backdrop closes
-        if (e.target === e.currentTarget) handleClose();
-      }}
-    >
+    <>
+      <style jsx global>{`
+        @keyframes sheetSlideUp {
+          0% { transform: translateY(100%); opacity: 0.8; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes sheetSlideDown {
+          0% { transform: translateY(0); opacity: 1; }
+          100% { transform: translateY(100%); opacity: 0.8; }
+        }
+        @keyframes backdropFadeIn {
+          0% { opacity: 0; backdrop-filter: blur(0px); }
+          100% { opacity: 1; backdrop-filter: blur(8px); }
+        }
+        @keyframes backdropFadeOut {
+          0% { opacity: 1; backdrop-filter: blur(8px); }
+          100% { opacity: 0; backdrop-filter: blur(0px); }
+        }
+      `}</style>
       <div
-        role="dialog"
-        aria-modal="true"
+        aria-hidden={!visible}
+        onMouseDown={handleInteraction}
+        onKeyDown={handleInteraction}
+        onTouchStart={handleInteraction}
         style={{
-          width: '100%',
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,1) 100%)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          borderTopLeftRadius: 24,
-          borderTopRightRadius: 24,
-          boxShadow: '0 -8px 40px rgba(15, 23, 42, 0.15), 0 -2px 12px rgba(15, 23, 42, 0.08)',
-          transform: visible ? 'translateY(0)' : 'translateY(100%)',
-          transition: 'transform 500ms cubic-bezier(0.32, 0.72, 0, 1)',
-          willChange: 'transform'
+          position: 'fixed',
+          inset: 0,
+          zIndex: 60,
+          display: 'flex',
+          alignItems: 'flex-end',
+          background: 'rgba(15, 23, 42, 0.4)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          animation: visible ? 'backdropFadeIn 0.3s ease-out forwards' : 'backdropFadeOut 0.3s ease-out forwards',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) handleClose();
         }}
       >
         <div
-          onClick={handleClose}
-          onMouseDown={handleInteraction}
-          onTouchStart={handleInteraction}
+          role="dialog"
+          aria-modal="true"
           style={{
-            display: 'flex',
-            justifyContent: 'center',
-            paddingTop: 14,
-            paddingBottom: 8,
-            cursor: 'grab'
+            width: '100%',
+            maxHeight: '85vh',
+            overflowY: 'auto',
+            background: '#ffffff',
+            borderTopLeftRadius: 28,
+            borderTopRightRadius: 28,
+            boxShadow: '0 -12px 48px rgba(15, 23, 42, 0.2), 0 -4px 16px rgba(15, 23, 42, 0.1)',
+            animation: visible ? 'sheetSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'sheetSlideDown 0.35s cubic-bezier(0.4, 0, 1, 1) forwards',
+            willChange: 'transform, opacity',
           }}
         >
-          <div style={{
-            width: 48,
-            height: 5,
-            borderRadius: 999,
-            background: 'linear-gradient(90deg, #cbd5e1 0%, #94a3b8 50%, #cbd5e1 100%)',
-          }} />
-        </div>
-        <div style={{ padding: '8px 20px 24px' }}>
-          {children}
+          {/* Header with gradient based on event type */}
+          <div
+            style={{
+              background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}90 100%)`,
+              borderBottom: `1px solid ${borderColor}`,
+              padding: '16px 20px 14px',
+              borderTopLeftRadius: 28,
+              borderTopRightRadius: 28,
+              position: 'sticky',
+              top: 0,
+              zIndex: 1,
+            }}
+          >
+            {/* Drag handle */}
+            <div
+              onClick={handleClose}
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                marginBottom: 12,
+                cursor: 'grab',
+              }}
+            >
+              <div style={{
+                width: 40,
+                height: 4,
+                borderRadius: 999,
+                background: borderColor,
+                opacity: 0.8,
+              }} />
+            </div>
+
+            {/* Event type indicator */}
+            {eventType && eventColor && (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+              }}>
+                <span style={{
+                  fontSize: 28,
+                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
+                }}>{eventColor.emoji}</span>
+                <span style={{
+                  fontSize: 18,
+                  fontWeight: 700,
+                  fontFamily: 'Nunito, Inter, sans-serif',
+                  color: '#1e293b',
+                }}>{eventType}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Content */}
+          <div style={{ padding: '20px 20px 32px' }}>
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

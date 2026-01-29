@@ -6,6 +6,12 @@ import { useLanguage } from '@/components/LanguageContext';
 import BottomSheet from '@/components/BottomSheet';
 import IconButton from '@/components/IconButton';
 import { EVENT_DEFS as BASE_EVENT_DEFS, applyButtonConfig } from '@/lib/events';
+
+// Helper to get event colors by type
+const EVENT_COLORS = BASE_EVENT_DEFS.reduce((acc, def) => {
+  acc[def.type] = { bg: def.bg, bd: def.bd, emoji: def.emoji };
+  return acc;
+}, {});
 import { IconFilter, IconPencil } from '@tabler/icons-react';
 
 function toDateTimeLocalString(date) {
@@ -40,15 +46,32 @@ function Pill({ active, onClick, children }) {
   }}>{children}</button>
 }
 
-function Chip({ children }) {
+// Helper to convert hex to rgba
+function hexToRgba(hex, alpha) {
+  const num = parseInt(hex.replace('#', ''), 16);
+  const r = num >> 16;
+  const g = (num >> 8) & 0x00FF;
+  const b = num & 0x0000FF;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function Chip({ children, bg, bd }) {
+  // Use event colors if provided, otherwise fall back to neutral
+  const background = bg
+    ? `linear-gradient(135deg, ${hexToRgba(bg, 0.85)} 0%, ${hexToRgba(bg, 0.6)} 100%)`
+    : 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)';
+  const border = bd
+    ? `1px solid ${hexToRgba(bd, 0.7)}`
+    : '1px solid rgba(0, 0, 0, 0.06)';
+
   return <span style={{
     display: 'inline-flex',
     alignItems: 'center',
     gap: 5,
     padding: '4px 10px',
     borderRadius: 999,
-    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
-    border: '1px solid rgba(0, 0, 0, 0.06)',
+    background,
+    border,
     fontSize: 12,
     fontWeight: 500,
     whiteSpace: 'nowrap',
@@ -103,106 +126,108 @@ function extractNotes(meta) {
 }
 
 // Inline meta (excluding notes). Single line next to title.
-function MetaInline({ ev, t }) {
+function MetaInline({ ev, t, eventColor }) {
   const m = ev?.meta || {};
   const chips = [];
+  const bg = eventColor?.bg;
+  const bd = eventColor?.bd;
 
   if (ev.event_type === 'DooDoo' && m.doo) {
     const c = m.doo.color;
     const s = m.doo.consistency;
-    if (s) chips.push(<Chip key="doo-s"><span>{s === 'runny' ? '💧' : s === 'normal' ? '🟠' : '🧱'}</span><span>{t(`val.${s}`)}</span></Chip>);
-    if (c) chips.push(<Chip key="doo-c"><span>{c === 'yellow' ? '🟡' : c === 'green' ? '🟢' : '🟤'}</span><span>{t(`val.${c}`)}</span></Chip>);
+    if (s) chips.push(<Chip bg={bg} bd={bd} key="doo-s"><span>{s === 'runny' ? '💧' : s === 'normal' ? '🟠' : '🧱'}</span><span>{t(`val.${s}`)}</span></Chip>);
+    if (c) chips.push(<Chip bg={bg} bd={bd} key="doo-c"><span>{c === 'yellow' ? '🟡' : c === 'green' ? '🟢' : '🟤'}</span><span>{t(`val.${c}`)}</span></Chip>);
   }
   if (ev.event_type === 'PeePee' && m.pee) {
     const a = m.pee.amount;
-    if (a) chips.push(<Chip key="pee-a"><span>{a === 'small' ? '💧' : a === 'medium' ? '💦' : '🌊'}</span><span>{t(`val.${a}`)}</span></Chip>);
+    if (a) chips.push(<Chip bg={bg} bd={bd} key="pee-a"><span>{a === 'small' ? '💧' : a === 'medium' ? '💦' : '🌊'}</span><span>{t(`val.${a}`)}</span></Chip>);
   }
   if (ev.event_type === 'Diaper' && m.diaper) {
     const map = { wet: '💧 ' + t('val.wet'), dirty: '💩 ' + t('val.dirty'), both: '💧💩 ' + t('val.both'), dry: '🧷 ' + t('val.dry') };
     const label = map[m.diaper.kind] || 'Change';
-    chips.push(<Chip key="diaper"><span>{label}</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="diaper"><span>{label}</span></Chip>);
   }
   if (ev.event_type === 'YumYum' && m.yum) {
     const k = m.yum.kind;
     const em = k === 'breast' ? '🤱' : k === 'bottle' ? '🍼' : k === 'formula' ? '🥛' : '🍎';
-    if (k) chips.push(<Chip key="yum-k"><span>{em}</span><span>{t(`val.${k}`)}</span></Chip>);
+    if (k) chips.push(<Chip bg={bg} bd={bd} key="yum-k"><span>{em}</span><span>{t(`val.${k}`)}</span></Chip>);
     if (k === 'breast' && m.yum.side) {
       const sideEmoji = m.yum.side === 'left' ? '⬅️' : m.yum.side === 'right' ? '➡️' : '↔️';
-      chips.push(<Chip key="yum-side"><span>{sideEmoji}</span><span>{t(`val.${m.yum.side}`)}</span></Chip>);
+      chips.push(<Chip bg={bg} bd={bd} key="yum-side"><span>{sideEmoji}</span><span>{t(`val.${m.yum.side}`)}</span></Chip>);
     }
-    if ((m.yum.quantity ?? null) !== null) chips.push(<Chip key="yum-q"><span>⚖️</span><span>{m.yum.quantity}</span><span style={{ color: '#777' }}>ml</span></Chip>);
+    if ((m.yum.quantity ?? null) !== null) chips.push(<Chip bg={bg} bd={bd} key="yum-q"><span>⚖️</span><span>{m.yum.quantity}</span><span style={{ color: '#777' }}>ml</span></Chip>);
   }
   if ((ev.event_type === 'MyMood' || ev.event_type === 'BabyMood') && m.mood) {
-    chips.push(<Chip key="mood"><span>{m.mood}</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="mood"><span>{m.mood}</span></Chip>);
   }
   if (ev.event_type === 'KickMe' && m.kick) {
-    if ('count' in m.kick) chips.push(<Chip key="kick-c"><span>🦶</span><span>x{m.kick.count}</span></Chip>);
+    if ('count' in m.kick) chips.push(<Chip bg={bg} bd={bd} key="kick-c"><span>🦶</span><span>x{m.kick.count}</span></Chip>);
     if ('side' in m.kick) {
       const sideLabel = m.kick.side === 'L' ? t('val.left') : (m.kick.side === 'R' ? t('val.right') : t('val.middle'));
       const sideEmoji = m.kick.side === 'L' ? '⬅️' : (m.kick.side === 'R' ? '➡️' : '⬆️');
-      chips.push(<Chip key="kick-s"><span>{sideEmoji}</span><span>{sideLabel}</span></Chip>);
+      chips.push(<Chip bg={bg} bd={bd} key="kick-s"><span>{sideEmoji}</span><span>{sideLabel}</span></Chip>);
     }
   }
   if (ev.event_type === 'Contraction' && m.contraction) {
-    if ('duration_sec' in m.contraction) chips.push(<Chip key="con-d"><span>⏱️</span><span>{m.contraction.duration_sec}s</span></Chip>);
-    if ('intensity' in m.contraction) chips.push(<Chip key="con-i"><span>🔥</span><span>{m.contraction.intensity}/10</span></Chip>);
+    if ('duration_sec' in m.contraction) chips.push(<Chip bg={bg} bd={bd} key="con-d"><span>⏱️</span><span>{m.contraction.duration_sec}s</span></Chip>);
+    if ('intensity' in m.contraction) chips.push(<Chip bg={bg} bd={bd} key="con-i"><span>🔥</span><span>{m.contraction.intensity}/10</span></Chip>);
   }
   if (ev.event_type === 'Temperature' && m.temp) {
     const unit = (m.temp.unit || 'F').toUpperCase();
     const val = m.temp.value;
-    if (val !== undefined) chips.push(<Chip key="temp"><span>🌡️</span><span>{val}°{unit}</span></Chip>);
+    if (val !== undefined) chips.push(<Chip bg={bg} bd={bd} key="temp"><span>🌡️</span><span>{val}°{unit}</span></Chip>);
   }
   if (ev.event_type === 'Medicine' && m.medicine) {
-    if (m.medicine.name) chips.push(<Chip key="med-n"><span>💊</span><span>{m.medicine.name}</span></Chip>);
-    if (m.medicine.dose !== undefined) chips.push(<Chip key="med-d"><span>⚖️</span><span>{m.medicine.dose}{m.medicine.unit ? (' ' + m.medicine.unit) : ''}</span></Chip>);
-    if (m.medicine.route) chips.push(<Chip key="med-r"><span>➡️</span><span>{t(`val.${m.medicine.route.toLowerCase()}`) || m.medicine.route}</span></Chip>);
+    if (m.medicine.name) chips.push(<Chip bg={bg} bd={bd} key="med-n"><span>💊</span><span>{m.medicine.name}</span></Chip>);
+    if (m.medicine.dose !== undefined) chips.push(<Chip bg={bg} bd={bd} key="med-d"><span>⚖️</span><span>{m.medicine.dose}{m.medicine.unit ? (' ' + m.medicine.unit) : ''}</span></Chip>);
+    if (m.medicine.route) chips.push(<Chip bg={bg} bd={bd} key="med-r"><span>➡️</span><span>{t(`val.${m.medicine.route.toLowerCase()}`) || m.medicine.route}</span></Chip>);
   }
   if (ev.event_type === 'Doctor' && m.doctor) {
     const kind = t(`val.${m.doctor.kind}`) || m.doctor.kind || 'Visit';
     const who = m.doctor.provider ? `· ${m.doctor.provider}` : '';
-    chips.push(<Chip key="doc"><span>🩺</span><span>{kind}{who}</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="doc"><span>🩺</span><span>{kind}{who}</span></Chip>);
   }
   if (ev.event_type === 'Heartbeat' && m.heartbeat) {
-    if (m.heartbeat.bpm !== undefined) chips.push(<Chip key="hb"><span>❤️</span><span>{m.heartbeat.bpm} bpm</span></Chip>);
+    if (m.heartbeat.bpm !== undefined) chips.push(<Chip bg={bg} bd={bd} key="hb"><span>❤️</span><span>{m.heartbeat.bpm} bpm</span></Chip>);
   }
   if (ev.event_type === 'Play' && m.play) {
     const em = { tummy: '🤸', reading: '📚', walk: '🚶', music: '🎶', bath: '🛁' }[m.play.kind];
     const label = t(`val.${m.play.kind}`) || m.play.kind;
-    chips.push(<Chip key="play-k"><span>{em || '🎲'}</span><span>{label}</span></Chip>);
-    if (m.play.duration_min !== undefined) chips.push(<Chip key="play-d"><span>⏱️</span><span>{m.play.duration_min}m</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="play-k"><span>{em || '🎲'}</span><span>{label}</span></Chip>);
+    if (m.play.duration_min !== undefined) chips.push(<Chip bg={bg} bd={bd} key="play-d"><span>⏱️</span><span>{m.play.duration_min}m</span></Chip>);
   }
   if (ev.event_type === 'Milestone' && m.milestone) {
     const cat = t(`val.${m.milestone.category}`) || null;
-    if (m.milestone.title) chips.push(<Chip key="mile-t"><span>⭐</span><span>{m.milestone.title}</span></Chip>);
-    if (cat) chips.push(<Chip key="mile-c"><span>🏷️</span><span>{cat}</span></Chip>);
+    if (m.milestone.title) chips.push(<Chip bg={bg} bd={bd} key="mile-t"><span>⭐</span><span>{m.milestone.title}</span></Chip>);
+    if (cat) chips.push(<Chip bg={bg} bd={bd} key="mile-c"><span>🏷️</span><span>{cat}</span></Chip>);
   }
   if (ev.event_type === 'Measure' && m.measure) {
     const kind = t(`val.${m.measure.kind}`) || m.measure.kind;
     if (m.measure.inches !== undefined) {
-      chips.push(<Chip key="meas"><span>📏</span><span>{kind}</span><span>{m.measure.inches} in</span></Chip>);
+      chips.push(<Chip bg={bg} bd={bd} key="meas"><span>📏</span><span>{kind}</span><span>{m.measure.inches} in</span></Chip>);
     } else if (m.measure.lb !== undefined || m.measure.oz !== undefined) {
       const lb = m.measure.lb || 0;
       const oz = m.measure.oz || 0;
-      chips.push(<Chip key="meas"><span>⚖️</span><span>{kind}</span><span>{lb}lb {oz}oz</span></Chip>);
+      chips.push(<Chip bg={bg} bd={bd} key="meas"><span>⚖️</span><span>{kind}</span><span>{lb}lb {oz}oz</span></Chip>);
     }
   }
   if (ev.event_type === 'Puke' && m.puke) {
     const a = m.puke.amount;
     const em = a === 'small' ? '💧' : a === 'medium' ? '💦' : '🌊';
-    chips.push(<Chip key="puke"><span>🤮</span>{a ? <><span>{em}</span><span>{t(`val.${a}`)}</span></> : null}</Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="puke"><span>🤮</span>{a ? <><span>{em}</span><span>{t(`val.${a}`)}</span></> : null}</Chip>);
   }
   if (ev.event_type === 'Sick') {
-    chips.push(<Chip key="sick"><span>🤒</span><span>{t('event.sick')}</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="sick"><span>🤒</span><span>{t('event.sick')}</span></Chip>);
   }
   if (ev.event_type === 'SleepStart') {
-    chips.push(<Chip key="sstart"><span>🛌</span><span>Start</span></Chip>);
+    chips.push(<Chip bg={bg} bd={bd} key="sstart"><span>🛌</span><span>Start</span></Chip>);
   }
   if (ev.event_type === 'SleepEnd' && m.sleep) {
-    if (m.sleep.duration_min !== undefined) chips.push(<Chip key="send"><span>🛌</span><span>End</span><span>·</span><span>{m.sleep.duration_min}m</span></Chip>);
-    else chips.push(<Chip key="send"><span>🛌</span><span>End</span></Chip>);
+    if (m.sleep.duration_min !== undefined) chips.push(<Chip bg={bg} bd={bd} key="send"><span>🛌</span><span>End</span><span>·</span><span>{m.sleep.duration_min}m</span></Chip>);
+    else chips.push(<Chip bg={bg} bd={bd} key="send"><span>🛌</span><span>End</span></Chip>);
   }
-  if (ev.event_type === 'CryCry') chips.push(<Chip key="cry"><span>😭</span><span>{t('event.crycry')}</span></Chip>);
-  if (ev.event_type === 'BlahBlah') chips.push(<Chip key="blah"><span>🗣️</span><span>{t('event.blahblah')}</span></Chip>);
+  if (ev.event_type === 'CryCry') chips.push(<Chip bg={bg} bd={bd} key="cry"><span>😭</span><span>{t('event.crycry')}</span></Chip>);
+  if (ev.event_type === 'BlahBlah') chips.push(<Chip bg={bg} bd={bd} key="blah"><span>🗣️</span><span>{t('event.blahblah')}</span></Chip>);
 
   if (chips.length === 0) return null;
   return <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 6, marginLeft: 8 }}>{chips}</span>;
@@ -536,8 +561,8 @@ export default function LogPage() {
 
   const grid = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(130px, 45%), 1fr))', gap: 10, paddingTop: 6 }}>
-      {EVENT_DEFS.map(def => (
-        <IconButton key={def.type} emoji={def.emoji} label={t(`event.${def.type.toLowerCase()}`) || def.label} color={def.bg} border={def.bd} onClick={() => logEvent(def.type)} />
+      {EVENT_DEFS.map((def, index) => (
+        <IconButton key={def.type} emoji={def.emoji} label={t(`event.${def.type.toLowerCase()}`) || def.label} color={def.bg} border={def.bd} onClick={() => logEvent(def.type)} animationDelay={index * 30} />
       ))}
     </div>
   );
@@ -667,6 +692,7 @@ export default function LogPage() {
               {visibleEvents.map(ev => {
                 const notes = extractNotes(ev?.meta);
                 const isHovered = hoverId === ev.id;
+                const eventColor = EVENT_COLORS[ev.event_type] || { bg: '#f5f5f7', bd: '#e8e8ee' };
                 return (
                   <li
                     key={ev.id}
@@ -675,18 +701,21 @@ export default function LogPage() {
                     onTouchStart={() => onTouch(ev.id)}
                     style={{
                       position: 'relative',
-                      padding: '14px 16px',
-                      border: isHovered ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(0, 0, 0, 0.04)',
+                      padding: '14px 16px 14px 20px',
+                      borderTop: isHovered ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(0, 0, 0, 0.04)',
+                      borderRight: isHovered ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(0, 0, 0, 0.04)',
+                      borderBottom: isHovered ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(0, 0, 0, 0.04)',
+                      borderLeft: `4px solid ${eventColor.bd}`,
                       borderRadius: 14,
                       marginBottom: 10,
                       background: isHovered
-                        ? 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)'
+                        ? `linear-gradient(135deg, ${eventColor.bg}40 0%, ${eventColor.bg}20 100%)`
                         : 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)',
                       display: 'grid',
                       gap: 6,
                       minWidth: 0,
                       boxShadow: isHovered
-                        ? '0 4px 16px rgba(139, 92, 246, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04)'
+                        ? `0 4px 16px ${eventColor.bd}30, 0 2px 6px rgba(0, 0, 0, 0.04)`
                         : '0 2px 8px rgba(0, 0, 0, 0.03)',
                       transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
                       transition: 'all 0.15s ease-out',
@@ -699,7 +728,7 @@ export default function LogPage() {
                           color: '#1e293b',
                           fontWeight: 700,
                         }}>{t(`event.${ev.event_type.toLowerCase()}`) || ev.event_type}</strong>
-                        <MetaInline ev={ev} t={t} />
+                        <MetaInline ev={ev} t={t} eventColor={eventColor} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                         <time style={{
@@ -784,9 +813,15 @@ export default function LogPage() {
         </div>
       </section>
 
-      <BottomSheet open={sheetOpen} onClose={() => { setSheetOpen(false); setEditingEvent(null); setActiveType(null); }} autoHideMs={5000}>
+      <BottomSheet
+        open={sheetOpen}
+        onClose={() => { setSheetOpen(false); setEditingEvent(null); setActiveType(null); }}
+        autoHideMs={5000}
+        eventType={activeType ? (t(`event.${activeType.toLowerCase()}`) || activeType) : null}
+        eventColor={activeType ? EVENT_COLORS[activeType] : null}
+      >
         <div style={{ display: 'grid', gap: 10 }}>
-          {activeType && <strong style={{ fontFamily: 'Nunito, Inter, sans-serif' }}>{t('log.add_details')} · {t(`event.${activeType.toLowerCase()}`) || activeType}</strong>}
+          {activeType && <strong style={{ fontFamily: 'Nunito, Inter, sans-serif', fontSize: 15, color: '#475569' }}>{t('log.add_details')}</strong>}
 
           {/* Per-type editors */}
           {activeType === 'DooDoo' && (
@@ -1113,23 +1148,45 @@ export default function LogPage() {
             />
           </label>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 6 }}>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={() => editingEvent && editingEvent.id !== 'pending' && deleteEvent(editingEvent.id)}
-                disabled={sheetLoading || editingEvent?.id === 'pending'}
-                style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #ff9c9c', background: '#ffd4d4', fontWeight: 700, opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer' }}
-              >
-                {t('tools.undo')}
-              </button>
-              <button
-                onClick={saveMeta}
-                disabled={sheetLoading || editingEvent?.id === 'pending'}
-                style={{ padding: '10px 14px', borderRadius: 10, border: '1px solid #73c69c', background: '#c7f0d8', fontWeight: 700, opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.6 : 1, cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer' }}
-              >
-                {sheetLoading ? t('tools.saving') : t('tools.save')}
-              </button>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16, paddingTop: 16, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+            <button
+              onClick={() => editingEvent && editingEvent.id !== 'pending' && deleteEvent(editingEvent.id)}
+              disabled={sheetLoading || editingEvent?.id === 'pending'}
+              style={{
+                padding: '12px 20px',
+                borderRadius: 12,
+                border: '1px solid #fecaca',
+                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                fontWeight: 600,
+                fontSize: 15,
+                color: '#dc2626',
+                opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.5 : 1,
+                cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(220, 38, 38, 0.15)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {t('tools.undo')}
+            </button>
+            <button
+              onClick={saveMeta}
+              disabled={sheetLoading || editingEvent?.id === 'pending'}
+              style={{
+                padding: '12px 28px',
+                borderRadius: 12,
+                border: '1px solid #86efac',
+                background: 'linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%)',
+                fontWeight: 600,
+                fontSize: 15,
+                color: '#15803d',
+                opacity: sheetLoading || editingEvent?.id === 'pending' ? 0.5 : 1,
+                cursor: sheetLoading || editingEvent?.id === 'pending' ? 'not-allowed' : 'pointer',
+                boxShadow: '0 2px 8px rgba(34, 197, 94, 0.2)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {sheetLoading ? t('tools.saving') : t('tools.save')}
+            </button>
           </div>
         </div>
       </BottomSheet>

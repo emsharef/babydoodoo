@@ -1,9 +1,10 @@
 'use client';
 import { useState } from 'react';
 
-export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d264', onClick }) {
+export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d264', onClick, animationDelay = 0 }) {
   const [isHovered, setIsHovered] = useState(false);
   const [isPressed, setIsPressed] = useState(false);
+  const [hasAnimated, setHasAnimated] = useState(false);
 
   // Create a lighter version of the color for gradient
   const lighterColor = adjustColor(color, 20);
@@ -33,6 +34,7 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
     transition: 'all 0.15s ease-out',
     position: 'relative',
     overflow: 'hidden',
+    animation: `fadeSlideIn 0.4s ease-out ${animationDelay}ms both`,
   };
 
   return (

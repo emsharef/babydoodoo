@@ -42,6 +42,10 @@ export default function RootLayout({ children }) {
             0%, 100% { opacity: 0.4; }
             50% { opacity: 0.6; }
           }
+          @keyframes fadeSlideIn {
+            0% { opacity: 0; transform: translateY(12px) scale(0.95); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+          }
         ` }} />
       </head>
       <body style={{
