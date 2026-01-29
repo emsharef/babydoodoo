@@ -66,7 +66,7 @@ export default function NavBar() {
     <nav style={{
       display: 'flex',
       gap: 8,
-      padding: '10px 12px',
+      padding: '12px 12px',
       background: 'rgba(255, 255, 255, 0.7)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
@@ -75,9 +75,8 @@ export default function NavBar() {
       alignItems: 'center',
       boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
       maxWidth: '100%',
-      overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', gap: isNarrow ? 6 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', gap: isNarrow ? 6 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', paddingTop: 2, paddingBottom: 2 }}>
         <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
         <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
         {role !== 'viewer' && (
