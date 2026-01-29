@@ -69,12 +69,17 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
       onKeyDown={handleInteraction}
       onTouchStart={handleInteraction}
       style={{
-        position:'fixed', inset:0, zIndex:60,
-        display:'flex', alignItems:'flex-end',
-        background: visible ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0)',
-        transition:'background 500ms ease'
+        position: 'fixed',
+        inset: 0,
+        zIndex: 60,
+        display: 'flex',
+        alignItems: 'flex-end',
+        background: visible ? 'rgba(15, 23, 42, 0.3)' : 'rgba(15, 23, 42, 0)',
+        backdropFilter: visible ? 'blur(4px)' : 'blur(0px)',
+        WebkitBackdropFilter: visible ? 'blur(4px)' : 'blur(0px)',
+        transition: 'all 500ms ease'
       }}
-      onClick={(e)=>{
+      onClick={(e) => {
         // click on backdrop closes
         if (e.target === e.currentTarget) handleClose();
       }}
@@ -83,25 +88,38 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
         role="dialog"
         aria-modal="true"
         style={{
-          width:'100%',
-          background:'#fff',
-          borderTopLeftRadius:16,
-          borderTopRightRadius:16,
-          boxShadow:'0 -6px 24px rgba(0,0,0,0.12)',
+          width: '100%',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,255,255,1) 100%)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          boxShadow: '0 -8px 40px rgba(15, 23, 42, 0.15), 0 -2px 12px rgba(15, 23, 42, 0.08)',
           transform: visible ? 'translateY(0)' : 'translateY(100%)',
-          transition:'transform 500ms ease',
-          willChange:'transform'
+          transition: 'transform 500ms cubic-bezier(0.32, 0.72, 0, 1)',
+          willChange: 'transform'
         }}
       >
         <div
           onClick={handleClose}
           onMouseDown={handleInteraction}
           onTouchStart={handleInteraction}
-          style={{ display:'flex', justifyContent:'center', paddingTop:10, paddingBottom:6, cursor:'grab' }}
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            paddingTop: 14,
+            paddingBottom: 8,
+            cursor: 'grab'
+          }}
         >
-          <div style={{ width:48, height:6, borderRadius:999, background:'#ddd' }} />
+          <div style={{
+            width: 48,
+            height: 5,
+            borderRadius: 999,
+            background: 'linear-gradient(90deg, #cbd5e1 0%, #94a3b8 50%, #cbd5e1 100%)',
+          }} />
         </div>
-        <div style={{ padding:12 }}>
+        <div style={{ padding: '8px 20px 24px' }}>
           {children}
         </div>
       </div>

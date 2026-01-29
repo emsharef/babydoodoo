@@ -25,16 +25,41 @@ function parseDateTimeLocalString(value) {
 }
 
 function Pill({ active, onClick, children }) {
-  return <button onClick={onClick} style={{ padding: '8px 12px', borderRadius: 999, border: `2px solid ${active ? '#444' : '#ddd'}`, background: active ? '#fafafa' : '#fff' }}>{children}</button>
+  return <button onClick={onClick} style={{
+    padding: '10px 14px',
+    borderRadius: 12,
+    border: active ? '2px solid #8b5cf6' : '1px solid rgba(0, 0, 0, 0.1)',
+    background: active
+      ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+      : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+    cursor: 'pointer',
+    fontWeight: 600,
+    color: active ? '#7c3aed' : '#475569',
+    boxShadow: active ? '0 2px 8px rgba(139, 92, 246, 0.2)' : '0 1px 4px rgba(0, 0, 0, 0.04)',
+    transition: 'all 0.15s ease',
+  }}>{children}</button>
 }
 
 function Chip({ children }) {
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '2px 8px', borderRadius: 999, background: '#f5f5f7', border: '1px solid #e8e8ee', fontSize: 13, whiteSpace: 'nowrap' }}>{children}</span>;
+  return <span style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '4px 10px',
+    borderRadius: 999,
+    background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)',
+    border: '1px solid rgba(0, 0, 0, 0.06)',
+    fontSize: 12,
+    fontWeight: 500,
+    whiteSpace: 'nowrap',
+    color: '#475569',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.04)',
+  }}>{children}</span>;
 }
 
 function QuickButtons({ values, activeValue, onSelect, format }) {
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
       {values.map(val => {
         const isActive = activeValue === val;
         return (
@@ -43,13 +68,18 @@ function QuickButtons({ values, activeValue, onSelect, format }) {
             type="button"
             onClick={() => onSelect(val)}
             style={{
-              padding: '6px 10px',
-              borderRadius: 8,
-              border: `1px solid ${isActive ? '#4f7cff' : '#d0d0d9'}`,
-              background: isActive ? '#e6edff' : '#fff',
+              padding: '8px 12px',
+              borderRadius: 10,
+              border: isActive ? '2px solid #8b5cf6' : '1px solid rgba(0, 0, 0, 0.08)',
+              background: isActive
+                ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
               fontSize: 13,
               cursor: 'pointer',
-              fontWeight: isActive ? 600 : 500
+              fontWeight: 600,
+              color: isActive ? '#7c3aed' : '#475569',
+              boxShadow: isActive ? '0 2px 6px rgba(139, 92, 246, 0.15)' : '0 1px 3px rgba(0, 0, 0, 0.04)',
+              transition: 'all 0.15s ease',
             }}
           >
             {format ? format(val) : val}
@@ -505,7 +535,7 @@ export default function LogPage() {
   }
 
   const grid = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 10 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(145px,1fr))', gap: 12 }}>
       {EVENT_DEFS.map(def => (
         <IconButton key={def.type} emoji={def.emoji} label={t(`event.${def.type.toLowerCase()}`) || def.label} color={def.bg} border={def.bd} onClick={() => logEvent(def.type)} />
       ))}
@@ -521,8 +551,20 @@ export default function LogPage() {
   });
 
   return (
-    <div style={{ display: 'grid', gap: 16, minWidth: 0 }}>
-      <section style={{ padding: 12, border: '1px solid #eee', borderRadius: 12, background: '#fff', display: 'grid', gap: 12, minWidth: 0, overflow: 'hidden' }}>
+    <div style={{ display: 'grid', gap: 20, minWidth: 0 }}>
+      <section style={{
+        padding: '20px',
+        border: '1px solid rgba(255, 255, 255, 0.8)',
+        borderRadius: 20,
+        background: 'rgba(255, 255, 255, 0.75)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04)',
+        display: 'grid',
+        gap: 16,
+        minWidth: 0,
+        overflow: 'hidden'
+      }}>
         {!selectedBaby && <p style={{ color: '#888' }}>{t('log.no_baby')}</p>}
         {/* Avoid flash: if config not loaded and no cache, show a light skeleton instead of full grid */}
         {role !== 'viewer' && (
@@ -536,38 +578,61 @@ export default function LogPage() {
           ) : grid
         )}
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '12px 0 6px' }}>
-            <h3 style={{ margin: 0, fontFamily: 'Nunito, Inter, sans-serif' }}>{t('log.recent_events')}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '16px 0 10px' }}>
+            <h3 style={{
+              margin: 0,
+              fontFamily: 'Nunito, Inter, sans-serif',
+              fontSize: 18,
+              fontWeight: 800,
+              color: '#1e293b',
+              letterSpacing: '-0.3px',
+            }}>{t('log.recent_events')}</h3>
             <button
               onClick={() => setShowFilters(prev => !prev)}
               style={{
-                padding: '6px 8px',
-                borderRadius: 8,
-                border: '1px solid #e5e5e5',
-                background: showFilters || filterType ? '#e6edff' : '#fff',
+                padding: '8px 12px',
+                borderRadius: 10,
+                border: showFilters || filterType ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
+                background: showFilters || filterType
+                  ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                  : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: 4
+                gap: 6,
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+                transition: 'all 0.15s ease',
               }}
               title={t('log.filter') || 'Filter'}
             >
-              <IconFilter size={18} stroke={1.5} color={filterType ? '#4f7cff' : '#666'} />
-              {filterType && <span style={{ fontSize: 12, color: '#4f7cff' }}>1</span>}
+              <IconFilter size={18} stroke={1.5} color={filterType ? '#7c3aed' : '#64748b'} />
+              {filterType && <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>1</span>}
             </button>
           </div>
           {showFilters && (
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10, paddingBottom: 10, borderBottom: '1px solid #eee' }}>
+            <div style={{
+              display: 'flex',
+              gap: 8,
+              flexWrap: 'wrap',
+              marginBottom: 12,
+              paddingBottom: 12,
+              borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
+            }}>
               <button
                 onClick={() => setFilterType(null)}
                 style={{
-                  padding: '6px 12px',
+                  padding: '8px 14px',
                   borderRadius: 999,
-                  border: `1px solid ${!filterType ? '#4f7cff' : '#d0d0d9'}`,
-                  background: !filterType ? '#e6edff' : '#fff',
+                  border: !filterType ? '2px solid #8b5cf6' : '1px solid rgba(0, 0, 0, 0.1)',
+                  background: !filterType
+                    ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                    : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                   fontSize: 13,
                   cursor: 'pointer',
-                  fontWeight: !filterType ? 600 : 500
+                  fontWeight: 600,
+                  color: !filterType ? '#7c3aed' : '#475569',
+                  boxShadow: !filterType ? '0 2px 8px rgba(139, 92, 246, 0.2)' : '0 1px 4px rgba(0, 0, 0, 0.04)',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {t('log.filter_all') || 'All'}
@@ -577,13 +642,18 @@ export default function LogPage() {
                   key={type}
                   onClick={() => setFilterType(filterType === type ? null : type)}
                   style={{
-                    padding: '6px 12px',
+                    padding: '8px 14px',
                     borderRadius: 999,
-                    border: `1px solid ${filterType === type ? '#4f7cff' : '#d0d0d9'}`,
-                    background: filterType === type ? '#e6edff' : '#fff',
+                    border: filterType === type ? '2px solid #8b5cf6' : '1px solid rgba(0, 0, 0, 0.1)',
+                    background: filterType === type
+                      ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                      : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                     fontSize: 13,
                     cursor: 'pointer',
-                    fontWeight: filterType === type ? 600 : 500
+                    fontWeight: 600,
+                    color: filterType === type ? '#7c3aed' : '#475569',
+                    boxShadow: filterType === type ? '0 2px 8px rgba(139, 92, 246, 0.2)' : '0 1px 4px rgba(0, 0, 0, 0.04)',
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   {t(`event.${type.toLowerCase()}`) || type}
@@ -591,25 +661,52 @@ export default function LogPage() {
               ))}
             </div>
           )}
-          {visibleEvents.length === 0 ? <p>{t('log.no_events')}</p> : (
+          {visibleEvents.length === 0 ? <p style={{ color: '#64748b', textAlign: 'center', padding: '20px 0' }}>{t('log.no_events')}</p> : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, overflow: 'hidden' }}>
               {visibleEvents.map(ev => {
                 const notes = extractNotes(ev?.meta);
+                const isHovered = hoverId === ev.id;
                 return (
                   <li
                     key={ev.id}
                     onMouseEnter={() => setHoverId(ev.id)}
                     onMouseLeave={() => setHoverId('')}
                     onTouchStart={() => onTouch(ev.id)}
-                    style={{ position: 'relative', padding: '10px 12px', border: '1px solid #eee', borderRadius: 10, marginBottom: 8, background: '#fafafa', display: 'grid', gap: 4, minWidth: 0 }}
+                    style={{
+                      position: 'relative',
+                      padding: '14px 16px',
+                      border: isHovered ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid rgba(0, 0, 0, 0.04)',
+                      borderRadius: 14,
+                      marginBottom: 10,
+                      background: isHovered
+                        ? 'linear-gradient(135deg, #faf5ff 0%, #f5f3ff 100%)'
+                        : 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)',
+                      display: 'grid',
+                      gap: 6,
+                      minWidth: 0,
+                      boxShadow: isHovered
+                        ? '0 4px 16px rgba(139, 92, 246, 0.1), 0 2px 6px rgba(0, 0, 0, 0.04)'
+                        : '0 2px 8px rgba(0, 0, 0, 0.03)',
+                      transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
+                      transition: 'all 0.15s ease-out',
+                    }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0, flexWrap: 'wrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                        <strong style={{ whiteSpace: 'nowrap' }}>{t(`event.${ev.event_type.toLowerCase()}`) || ev.event_type}</strong>
+                        <strong style={{
+                          whiteSpace: 'nowrap',
+                          color: '#1e293b',
+                          fontWeight: 700,
+                        }}>{t(`event.${ev.event_type.toLowerCase()}`) || ev.event_type}</strong>
                         <MetaInline ev={ev} t={t} />
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                        <time style={{ whiteSpace: 'nowrap', color: '#666', fontSize: 13 }}>{new Date(ev.occurred_at).toLocaleString()}</time>
+                        <time style={{
+                          whiteSpace: 'nowrap',
+                          color: '#64748b',
+                          fontSize: 13,
+                          fontWeight: 500,
+                        }}>{new Date(ev.occurred_at).toLocaleString()}</time>
                         {role !== 'viewer' && (
                           <>
                             <button
@@ -618,14 +715,15 @@ export default function LogPage() {
                               onClick={() => openEditEvent(ev)}
                               style={{
                                 opacity: showTrash(ev.id) ? 1 : 0,
-                                transition: 'opacity .15s ease',
+                                transition: 'all .15s ease',
                                 padding: '6px 8px',
                                 borderRadius: 8,
-                                border: '1px solid #e5e5e5',
-                                background: '#fff',
+                                border: '1px solid rgba(139, 92, 246, 0.2)',
+                                background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
                                 cursor: 'pointer',
                                 display: 'flex',
-                                alignItems: 'center'
+                                alignItems: 'center',
+                                color: '#7c3aed',
                               }}
                             ><IconPencil size={16} stroke={1.5} /></button>
                             <button
@@ -634,31 +732,51 @@ export default function LogPage() {
                               onClick={() => deleteEvent(ev.id)}
                               style={{
                                 opacity: showTrash(ev.id) ? 1 : 0,
-                                transition: 'opacity .15s ease',
+                                transition: 'all .15s ease',
                                 padding: '6px 8px',
                                 borderRadius: 8,
-                                border: '1px solid #e5e5e5',
-                                background: '#fff',
-                                cursor: 'pointer'
+                                border: '1px solid rgba(239, 68, 68, 0.2)',
+                                background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                                cursor: 'pointer',
                               }}
                             >🗑️</button>
                           </>
                         )}
                       </div>
                     </div>
-                    {notes ? <div style={{ color: '#555', fontSize: 13, overflowWrap: 'break-word', minWidth: 0 }}>📝 {notes}</div> : null}
+                    {notes ? <div style={{
+                      color: '#475569',
+                      fontSize: 13,
+                      overflowWrap: 'break-word',
+                      minWidth: 0,
+                      padding: '6px 10px',
+                      background: 'rgba(0, 0, 0, 0.02)',
+                      borderRadius: 8,
+                      marginTop: 2,
+                    }}>📝 {notes}</div> : null}
                   </li>
                 )
               })}
             </ul>
           )}
           {hasMore && (
-            <div ref={sentinelRef} style={{ padding: 20, textAlign: 'center', color: '#888' }}>
+            <div ref={sentinelRef} style={{
+              padding: 24,
+              textAlign: 'center',
+              color: '#8b5cf6',
+              fontWeight: 500,
+            }}>
               {loadingMore ? (t('log.loading') || 'Loading...') : ''}
             </div>
           )}
           {!hasMore && visibleEvents.length > 0 && (
-            <div style={{ padding: 16, textAlign: 'center', color: '#aaa', fontSize: 13 }}>
+            <div style={{
+              padding: 20,
+              textAlign: 'center',
+              color: '#94a3b8',
+              fontSize: 13,
+              fontWeight: 500,
+            }}>
               {t('log.no_more_events') || 'No more events'}
             </div>
           )}

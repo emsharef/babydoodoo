@@ -96,9 +96,26 @@ export default function AnalyticsPage() {
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
-      <header className="analytics-header" style={{ display: 'grid', gap: 12, background: '#fff', border: '1px solid #ececf2', borderRadius: 16, padding: '18px 20px' }}>
+      <header className="analytics-header" style={{
+        display: 'grid',
+        gap: 12,
+        background: 'rgba(255, 255, 255, 0.75)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.8)',
+        borderRadius: 20,
+        padding: '20px 24px',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06), 0 2px 8px rgba(0, 0, 0, 0.04)',
+      }}>
         <div className="analytics-header__top" style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: 28, fontFamily: 'Nunito, Inter, sans-serif' }}>{t('analytics.title')}</h2>
+          <h2 style={{
+            margin: 0,
+            fontSize: 28,
+            fontFamily: 'Nunito, Inter, sans-serif',
+            fontWeight: 800,
+            color: '#1e293b',
+            letterSpacing: '-0.5px',
+          }}>{t('analytics.title')}</h2>
           <div className="range-presets" style={{ marginLeft: 'auto', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             <span className="range-presets__label">{t('analytics.range')}</span>
             {RANGE_PRESETS.map(option => (
@@ -108,12 +125,17 @@ export default function AnalyticsPage() {
                 onClick={() => setRangeKey(option.key)}
                 title={option.label}
                 style={{
-                  padding: '8px 12px',
-                  borderRadius: 10,
-                  border: `1px solid ${rangeKey === option.key ? '#4f7cff' : '#dcdce3'}`,
-                  background: rangeKey === option.key ? '#e6edff' : '#fff',
+                  padding: '10px 14px',
+                  borderRadius: 12,
+                  border: rangeKey === option.key ? '2px solid #8b5cf6' : '1px solid rgba(0, 0, 0, 0.08)',
+                  background: rangeKey === option.key
+                    ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                    : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  color: rangeKey === option.key ? '#7c3aed' : '#475569',
+                  boxShadow: rangeKey === option.key ? '0 2px 8px rgba(139, 92, 246, 0.2)' : '0 1px 4px rgba(0, 0, 0, 0.04)',
+                  transition: 'all 0.15s ease',
                 }}
               >
                 {option.labelShort}

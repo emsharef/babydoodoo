@@ -63,8 +63,19 @@ export default function NavBar() {
 
   if (!user) return null;
   return (
-    <nav style={{ display: 'flex', gap: 8, padding: 8, background: '#fff', border: '1px solid #eee', borderRadius: 12, alignItems: 'center' }}>
-      <div style={{ display: 'flex', gap: isNarrow ? 4 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
+    <nav style={{
+      display: 'flex',
+      gap: 8,
+      padding: '10px 14px',
+      background: 'rgba(255, 255, 255, 0.7)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.8)',
+      borderRadius: 16,
+      alignItems: 'center',
+      boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
+    }}>
+      <div style={{ display: 'flex', gap: isNarrow ? 6 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto' }}>
         <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
         <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
         {role !== 'viewer' && (
@@ -76,61 +87,90 @@ export default function NavBar() {
         )}
       </div>
       <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
-        <select id="babySelectTop" value={selectedBabyId} onChange={(e) => selectBaby(e.target.value)} style={{ padding: isNarrow ? '6px 8px' : '8px 10px', borderRadius: 10, border: '1px solid #ccc', minWidth: isNarrow ? 100 : 120 }}>
+        <select
+          id="babySelectTop"
+          value={selectedBabyId}
+          onChange={(e) => selectBaby(e.target.value)}
+          style={{
+            padding: isNarrow ? '8px 10px' : '10px 14px',
+            borderRadius: 12,
+            border: '1px solid rgba(0, 0, 0, 0.08)',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+            minWidth: isNarrow ? 100 : 130,
+            fontSize: 14,
+            fontWeight: 500,
+            color: '#334155',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+            cursor: 'pointer',
+          }}
+        >
           <option value="" disabled>{t('nav.select_baby')}</option>
           {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
-      <div style={{ position: 'relative', marginLeft: 12 }} ref={menuRef}>
+      <div style={{ position: 'relative', marginLeft: 8 }} ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen(prev => !prev)}
           style={{
-            width: isNarrow ? 32 : 40,
-            height: isNarrow ? 32 : 40,
+            width: isNarrow ? 36 : 42,
+            height: isNarrow ? 36 : 42,
             borderRadius: '50%',
-            border: '1px solid #e5e5e5',
-            background: '#fafafa',
+            border: '2px solid rgba(139, 92, 246, 0.2)',
+            background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(139, 92, 246, 0.15)',
+            transition: 'all 0.2s ease',
           }}
           title="Account"
         >
-          <IconUserCircle size={isNarrow ? 18 : 22} stroke={1.8} color="#1f2933" />
+          <IconUserCircle size={isNarrow ? 20 : 24} stroke={1.8} color="#7c3aed" />
         </button>
         {menuOpen && (
           <div
             style={{
               position: 'absolute',
               right: 0,
-              marginTop: 6,
-              width: 220,
-              background: '#fff',
-              border: '1px solid #e5e5e5',
-              borderRadius: 12,
-              boxShadow: '0 6px 24px rgba(15, 23, 42, 0.12)',
-              padding: '12px 14px',
+              marginTop: 8,
+              width: 240,
+              background: 'rgba(255, 255, 255, 0.95)',
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              border: '1px solid rgba(255, 255, 255, 0.8)',
+              borderRadius: 16,
+              boxShadow: '0 12px 40px rgba(15, 23, 42, 0.15), 0 4px 12px rgba(15, 23, 42, 0.05)',
+              padding: '16px',
               display: 'grid',
-              gap: 10,
+              gap: 12,
               zIndex: 40,
             }}
           >
-            <div style={{ fontSize: 13, color: '#444', wordBreak: 'break-all' }}>{user.email || t('nav.signed_in')}</div>
+            <div style={{
+              fontSize: 13,
+              color: '#64748b',
+              wordBreak: 'break-all',
+              padding: '8px 12px',
+              background: '#f8fafc',
+              borderRadius: 10,
+            }}>{user.email || t('nav.signed_in')}</div>
 
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13 }}>
-              <span>{t('nav.language')}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 13, padding: '0 4px' }}>
+              <span style={{ color: '#475569', fontWeight: 500 }}>{t('nav.language')}</span>
               <div style={{ display: 'flex', gap: 4 }}>
                 <button
                   onClick={() => setLanguage('en')}
                   style={{
-                    padding: '4px 8px',
-                    borderRadius: 6,
-                    border: language === 'en' ? '1px solid #4f7cff' : '1px solid #eee',
-                    background: language === 'en' ? '#e6edff' : '#fff',
-                    color: language === 'en' ? '#4f7cff' : '#666',
-                    cursor: 'pointer'
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: language === 'en' ? '2px solid #8b5cf6' : '1px solid #e2e8f0',
+                    background: language === 'en' ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)' : '#fff',
+                    color: language === 'en' ? '#7c3aed' : '#64748b',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   EN
@@ -138,12 +178,14 @@ export default function NavBar() {
                 <button
                   onClick={() => setLanguage('zh')}
                   style={{
-                    padding: '4px 8px',
-                    borderRadius: 6,
-                    border: language === 'zh' ? '1px solid #4f7cff' : '1px solid #eee',
-                    background: language === 'zh' ? '#e6edff' : '#fff',
-                    color: language === 'zh' ? '#4f7cff' : '#666',
-                    cursor: 'pointer'
+                    padding: '6px 12px',
+                    borderRadius: 8,
+                    border: language === 'zh' ? '2px solid #8b5cf6' : '1px solid #e2e8f0',
+                    background: language === 'zh' ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)' : '#fff',
+                    color: language === 'zh' ? '#7c3aed' : '#64748b',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    transition: 'all 0.15s ease',
                   }}
                 >
                   中文
@@ -156,13 +198,16 @@ export default function NavBar() {
               onClick={handleSignOut}
               disabled={signingOut}
               style={{
-                padding: '8px 10px',
-                borderRadius: 8,
-                border: '1px solid #f0b3b3',
-                background: signingOut ? '#fbe2e2' : '#ffe5e5',
-                color: '#c0392b',
+                padding: '12px 14px',
+                borderRadius: 12,
+                border: '1px solid #fecaca',
+                background: signingOut
+                  ? '#fee2e2'
+                  : 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                color: '#dc2626',
                 fontWeight: 600,
                 cursor: signingOut ? 'wait' : 'pointer',
+                transition: 'all 0.15s ease',
               }}
             >
               {signingOut ? t('nav.signing_out') : t('nav.sign_out')}
@@ -173,29 +218,39 @@ export default function NavBar() {
     </nav>
   );
 }
-const linkStyle = { padding: '10px 12px', borderRadius: 10, border: '1px solid #e5e5e5', background: '#fafafa', textDecoration: 'none', color: '#222', fontWeight: 600, fontFamily: 'Inter, system-ui, sans-serif' };
 
 function IconLink({ href, Icon, isNarrow }) {
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
     <Link
       href={href}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: isNarrow ? '3px' : '4px',
-        borderRadius: 8,
-        border: '1px solid #e5e5e5',
-        background: '#fafafa',
+        padding: isNarrow ? '6px' : '8px',
+        borderRadius: 10,
+        border: isHovered ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(0, 0, 0, 0.06)',
+        background: isHovered
+          ? 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)'
+          : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         textDecoration: 'none',
-        color: '#222',
-        width: isNarrow ? 26 : 30,
-        height: isNarrow ? 26 : 30,
+        color: isHovered ? '#7c3aed' : '#475569',
+        width: isNarrow ? 32 : 38,
+        height: isNarrow ? 32 : 38,
         fontWeight: 600,
         fontFamily: 'Inter, system-ui, sans-serif',
+        boxShadow: isHovered
+          ? '0 4px 12px rgba(139, 92, 246, 0.15)'
+          : '0 2px 6px rgba(0, 0, 0, 0.04)',
+        transform: isHovered ? 'translateY(-1px)' : 'translateY(0)',
+        transition: 'all 0.15s ease-out',
       }}
     >
-      <Icon size={isNarrow ? 20 : 24} stroke={1.8} />
+      <Icon size={isNarrow ? 18 : 22} stroke={1.8} />
     </Link>
   );
 }
