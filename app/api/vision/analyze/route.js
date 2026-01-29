@@ -47,17 +47,24 @@ DATE HANDLING (IMPORTANT):
 - DO NOT add "Z" or any timezone suffix - just return the local time as written on the paper
 
 Metadata structures by type (use EXACTLY these field values):
-- YumYum: { yum: { kind: "breast"|"bottle"|"formula"|"solid", quantity: "120ml", side: "left"|"right"|"both" }, notes: "optional notes" }
+- YumYum: { yum: { kind: "breast"|"bottle"|"formula"|"solid", quantity: 120, side: "left"|"right"|"both" }, notes: "optional notes" }
+  (quantity is a NUMBER in ml, no units - e.g., 120 not "120ml")
 - DooDoo: { doo: { consistency: "runny"|"normal"|"firm", color: "yellow"|"green"|"brown" }, notes: "optional notes" }
 - PeePee: { pee: { amount: "small"|"medium"|"large" }, notes: "optional notes" }
 - Diaper: { diaper: { kind: "wet"|"dirty"|"both"|"dry" }, notes: "optional notes" }
-- SleepStart/SleepEnd: { notes: "optional notes" }
+- SleepStart/SleepEnd: { sleep: { duration_min: 90 }, notes: "optional notes" }
+  (duration_min is a NUMBER in minutes, no units)
 - Temperature: { temp: { value: 98.6, unit: "F"|"C" }, notes: "optional notes" }
-- Medicine: { medicine: { name: "medication name", dose: "dosage", unit: "mg"|"ml"|"drops", route: "PO"|"Topical"|"Other" }, notes: "optional notes" }
+  (value is a NUMBER, no units - unit is specified separately)
+- Medicine: { medicine: { name: "medication name", dose: 5, unit: "mg"|"ml"|"drops", route: "PO"|"Topical"|"Other" }, notes: "optional notes" }
+  (dose is a NUMBER, no units - unit is specified separately)
 - Puke: { puke: { amount: "small"|"medium"|"large" }, notes: "optional notes" }
 - BabyMood: { mood: "😄"|"🙂"|"😐"|"😕"|"😢"|"😡", notes: "optional notes" }
 - Play: { play: { kind: "tummy"|"reading"|"walk"|"music"|"bath", duration_min: 10 }, notes: "optional notes" }
+  (duration_min is a NUMBER in minutes, no units)
 - Note: { notes: "the actual note text" }
+
+NUMERIC FIELDS: quantity, duration_min, dose, value, bpm must be NUMBERS only (e.g., 120), never strings with units (e.g., "120ml").
 
 IMPORTANT:
 - Return ONLY a valid JSON array, no other text or markdown
@@ -229,6 +236,59 @@ export async function POST(request) {
         'CryCry', 'BlahBlah', 'Measure'
       ];
 
+      // Helper to extract numeric value from strings like "120ml" or "50 oz"
+      const toNumber = (val) => {
+        if (typeof val === 'number') return val;
+        if (typeof val === 'string') {
+          const num = parseFloat(val.replace(/[^\d.-]/g, ''));
+          return isNaN(num) ? null : num;
+        }
+        return null;
+      };
+
+      // Sanitize numeric fields in meta
+      const sanitizeMeta = (meta) => {
+        if (!meta) return {};
+        const cleaned = { ...meta };
+        if (cleaned.yum?.quantity != null) {
+          cleaned.yum = { ...cleaned.yum, quantity: toNumber(cleaned.yum.quantity) };
+        }
+        if (cleaned.temp?.value != null) {
+          cleaned.temp = { ...cleaned.temp, value: toNumber(cleaned.temp.value) };
+        }
+        if (cleaned.medicine?.dose != null) {
+          cleaned.medicine = { ...cleaned.medicine, dose: toNumber(cleaned.medicine.dose) };
+        }
+        if (cleaned.play?.duration_min != null) {
+          cleaned.play = { ...cleaned.play, duration_min: toNumber(cleaned.play.duration_min) };
+        }
+        if (cleaned.sleep?.duration_min != null) {
+          cleaned.sleep = { ...cleaned.sleep, duration_min: toNumber(cleaned.sleep.duration_min) };
+        }
+        if (cleaned.heartbeat?.bpm != null) {
+          cleaned.heartbeat = { ...cleaned.heartbeat, bpm: toNumber(cleaned.heartbeat.bpm) };
+        }
+        if (cleaned.contraction?.duration_sec != null) {
+          cleaned.contraction = { ...cleaned.contraction, duration_sec: toNumber(cleaned.contraction.duration_sec) };
+        }
+        if (cleaned.contraction?.intensity != null) {
+          cleaned.contraction = { ...cleaned.contraction, intensity: toNumber(cleaned.contraction.intensity) };
+        }
+        if (cleaned.measure?.inches != null) {
+          cleaned.measure = { ...cleaned.measure, inches: toNumber(cleaned.measure.inches) };
+        }
+        if (cleaned.measure?.lb != null) {
+          cleaned.measure = { ...cleaned.measure, lb: toNumber(cleaned.measure.lb) };
+        }
+        if (cleaned.measure?.oz != null) {
+          cleaned.measure = { ...cleaned.measure, oz: toNumber(cleaned.measure.oz) };
+        }
+        if (cleaned.kick?.count != null) {
+          cleaned.kick = { ...cleaned.kick, count: toNumber(cleaned.kick.count) };
+        }
+        return cleaned;
+      };
+
       events = events.filter(e => {
         if (!e.event_type || !validTypes.includes(e.event_type)) return false;
         if (!e.occurred_at) return false;
@@ -242,7 +302,7 @@ export async function POST(request) {
         return {
           event_type: e.event_type,
           occurred_at: parsedDate.toISOString(),
-          meta: e.meta || {},
+          meta: sanitizeMeta(e.meta),
         };
       }).filter(Boolean);
 
