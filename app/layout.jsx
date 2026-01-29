@@ -34,6 +34,20 @@ export default function RootLayout({ children }) {
         <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png" />
         <style dangerouslySetInnerHTML={{ __html: `
           html, body { max-width: 100vw; overflow-x: hidden; }
+          /* Ensure consistent font across all form elements */
+          input, textarea, select, button {
+            font-family: Inter, system-ui, -apple-system, sans-serif;
+          }
+          /* Style page headings consistently */
+          h2, h3, h4 {
+            font-family: 'Nunito', Inter, sans-serif;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+          }
+          /* Improve label styling */
+          label {
+            font-weight: 500;
+          }
           @keyframes float {
             0%, 100% { transform: translateY(0px); }
             50% { transform: translateY(-6px); }
