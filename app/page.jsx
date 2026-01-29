@@ -816,7 +816,7 @@ export default function LogPage() {
       <BottomSheet
         open={sheetOpen}
         onClose={() => { setSheetOpen(false); setEditingEvent(null); setActiveType(null); }}
-        autoHideMs={5000}
+        autoHideMs={8000}
         eventType={activeType ? (t(`event.${activeType.toLowerCase()}`) || activeType) : null}
         eventColor={activeType ? EVENT_COLORS[activeType] : null}
       >

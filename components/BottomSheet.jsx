@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * BottomSheet - Redesigned with dramatic animations and better visuals
+ * BottomSheet - Modern, polished design with smooth animations
  */
 export default function BottomSheet({ open, onClose, children, autoHideMs = 5000, eventType, eventColor }) {
   const [visible, setVisible] = useState(false);
@@ -55,25 +55,31 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
 
   const bgColor = eventColor?.bg || '#f8fafc';
   const borderColor = eventColor?.bd || '#e2e8f0';
+  const emoji = eventColor?.emoji || '';
 
   return (
     <>
       <style jsx global>{`
         @keyframes sheetSlideUp {
-          0% { transform: translateY(100%); opacity: 0.8; }
-          100% { transform: translateY(0); opacity: 1; }
+          0% { transform: translateY(100%); }
+          100% { transform: translateY(0); }
         }
         @keyframes sheetSlideDown {
-          0% { transform: translateY(0); opacity: 1; }
-          100% { transform: translateY(100%); opacity: 0.8; }
+          0% { transform: translateY(0); }
+          100% { transform: translateY(100%); }
         }
         @keyframes backdropFadeIn {
-          0% { opacity: 0; backdrop-filter: blur(0px); }
-          100% { opacity: 1; backdrop-filter: blur(8px); }
+          0% { opacity: 0; }
+          100% { opacity: 1; }
         }
         @keyframes backdropFadeOut {
-          0% { opacity: 1; backdrop-filter: blur(8px); }
-          100% { opacity: 0; backdrop-filter: blur(0px); }
+          0% { opacity: 1; }
+          100% { opacity: 0; }
+        }
+        @keyframes emojiPop {
+          0% { transform: scale(0.5); opacity: 0; }
+          50% { transform: scale(1.1); }
+          100% { transform: scale(1); opacity: 1; }
         }
       `}</style>
       <div
@@ -87,10 +93,10 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
           zIndex: 60,
           display: 'flex',
           alignItems: 'flex-end',
-          background: 'rgba(15, 23, 42, 0.4)',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
-          animation: visible ? 'backdropFadeIn 0.3s ease-out forwards' : 'backdropFadeOut 0.3s ease-out forwards',
+          background: 'rgba(15, 23, 42, 0.5)',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          animation: visible ? 'backdropFadeIn 0.25s ease-out forwards' : 'backdropFadeOut 0.25s ease-out forwards',
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget) handleClose();
@@ -101,71 +107,85 @@ export default function BottomSheet({ open, onClose, children, autoHideMs = 5000
           aria-modal="true"
           style={{
             width: '100%',
-            maxHeight: '85vh',
+            maxHeight: '90vh',
             overflowY: 'auto',
             background: '#ffffff',
-            borderTopLeftRadius: 28,
-            borderTopRightRadius: 28,
-            boxShadow: '0 -12px 48px rgba(15, 23, 42, 0.2), 0 -4px 16px rgba(15, 23, 42, 0.1)',
-            animation: visible ? 'sheetSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'sheetSlideDown 0.35s cubic-bezier(0.4, 0, 1, 1) forwards',
-            willChange: 'transform, opacity',
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+            boxShadow: '0 -8px 32px rgba(15, 23, 42, 0.15)',
+            animation: visible ? 'sheetSlideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards' : 'sheetSlideDown 0.3s cubic-bezier(0.4, 0, 1, 1) forwards',
           }}
         >
-          {/* Header with gradient based on event type */}
+          {/* Drag handle */}
           <div
+            onClick={handleClose}
             style={{
-              background: `linear-gradient(135deg, ${bgColor} 0%, ${bgColor}90 100%)`,
-              borderBottom: `1px solid ${borderColor}`,
-              padding: '16px 20px 14px',
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              position: 'sticky',
-              top: 0,
-              zIndex: 1,
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '12px 0 8px',
+              cursor: 'pointer',
             }}
           >
-            {/* Drag handle */}
+            <div style={{
+              width: 36,
+              height: 4,
+              borderRadius: 999,
+              background: '#d1d5db',
+            }} />
+          </div>
+
+          {/* Header with event type */}
+          {eventType && eventColor && (
             <div
-              onClick={handleClose}
               style={{
                 display: 'flex',
-                justifyContent: 'center',
-                marginBottom: 12,
-                cursor: 'grab',
+                alignItems: 'center',
+                gap: 14,
+                padding: '8px 24px 20px',
+                borderBottom: `1px solid ${borderColor}40`,
               }}
             >
+              {/* Emoji circle */}
               <div style={{
-                width: 40,
-                height: 4,
-                borderRadius: 999,
-                background: borderColor,
-                opacity: 0.8,
-              }} />
-            </div>
-
-            {/* Event type indicator */}
-            {eventType && eventColor && (
-              <div style={{
+                width: 56,
+                height: 56,
+                borderRadius: '50%',
+                background: `linear-gradient(145deg, ${bgColor} 0%, ${bgColor}cc 100%)`,
+                border: `2px solid ${borderColor}`,
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
+                justifyContent: 'center',
+                boxShadow: `0 4px 12px ${borderColor}40`,
+                animation: 'emojiPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both',
               }}>
                 <span style={{
                   fontSize: 28,
-                  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))',
-                }}>{eventColor.emoji}</span>
-                <span style={{
-                  fontSize: 18,
+                  lineHeight: 1,
+                }}>{emoji}</span>
+              </div>
+              {/* Event name and subtitle */}
+              <div>
+                <div style={{
+                  fontSize: 20,
                   fontWeight: 700,
                   fontFamily: 'Nunito, Inter, sans-serif',
                   color: '#1e293b',
-                }}>{eventType}</span>
+                  lineHeight: 1.2,
+                }}>{eventType}</div>
+                <div style={{
+                  fontSize: 13,
+                  color: '#64748b',
+                  marginTop: 2,
+                }}>Tap to add details</div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* Content */}
-          <div style={{ padding: '20px 20px 32px' }}>
+          {/* Content area */}
+          <div style={{
+            padding: '20px 24px 28px',
+            background: '#fafbfc',
+          }}>
             {children}
           </div>
         </div>
