@@ -191,6 +191,7 @@ export default function ToolsPage() {
     const [importErrors, setImportErrors] = useState([]);
     const [importing, setImporting] = useState(false);
     const [importStep, setImportStep] = useState('upload'); // 'upload' | 'preview' | 'done'
+    const [previewPage, setPreviewPage] = useState(0);
     const [importedCount, setImportedCount] = useState(0);
     const [importTimezone, setImportTimezone] = useState('local'); // 'local', 'UTC', or offset like '-05:00'
     const fileInputRef = useRef(null);
@@ -622,6 +623,7 @@ export default function ToolsPage() {
                 }
 
                 setImportPreview(preview);
+                setPreviewPage(0);
                 // Select all non-duplicates by default
                 const nonDuplicateIndices = preview
                     .map((item, i) => item._isDuplicate ? null : i)
@@ -694,6 +696,7 @@ export default function ToolsPage() {
         setImportErrors([]);
         setImportStep('upload');
         setImportedCount(0);
+        setPreviewPage(0);
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -1622,7 +1625,8 @@ export default function ToolsPage() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {importPreview.slice(0, 50).map((row, i) => {
+                                            {importPreview.slice(previewPage * 50, (previewPage + 1) * 50).map((row, pageIdx) => {
+                                                const i = previewPage * 50 + pageIdx;
                                                 // Format metadata for display
                                                 const formatMeta = (meta, type) => {
                                                     if (!meta) return '-';
@@ -1707,11 +1711,40 @@ export default function ToolsPage() {
                                             })}
                                         </tbody>
                                     </table>
-                                    {importPreview.length > 50 && (
-                                        <div style={{ padding: 8, textAlign: 'center', color: '#666', fontSize: 12 }}>
-                                            ... and {importPreview.length - 50} more rows
-                                        </div>
-                                    )}
+                                    {importPreview.length > 50 && (() => {
+                                        const totalPages = Math.ceil(importPreview.length / 50);
+                                        return (
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, padding: '10px 8px', borderTop: '1px solid #eee', fontSize: 13 }}>
+                                                <button
+                                                    onClick={() => setPreviewPage(p => p - 1)}
+                                                    disabled={previewPage === 0}
+                                                    style={{
+                                                        padding: '4px 12px', borderRadius: 6, border: '1px solid #ccc',
+                                                        background: previewPage === 0 ? '#f5f5f5' : '#fff',
+                                                        cursor: previewPage === 0 ? 'default' : 'pointer',
+                                                        color: previewPage === 0 ? '#aaa' : '#333', fontWeight: 500
+                                                    }}
+                                                >
+                                                    Prev
+                                                </button>
+                                                <span style={{ color: '#666' }}>
+                                                    {previewPage * 50 + 1}–{Math.min((previewPage + 1) * 50, importPreview.length)} of {importPreview.length}
+                                                </span>
+                                                <button
+                                                    onClick={() => setPreviewPage(p => p + 1)}
+                                                    disabled={previewPage >= totalPages - 1}
+                                                    style={{
+                                                        padding: '4px 12px', borderRadius: 6, border: '1px solid #ccc',
+                                                        background: previewPage >= totalPages - 1 ? '#f5f5f5' : '#fff',
+                                                        cursor: previewPage >= totalPages - 1 ? 'default' : 'pointer',
+                                                        color: previewPage >= totalPages - 1 ? '#aaa' : '#333', fontWeight: 500
+                                                    }}
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
