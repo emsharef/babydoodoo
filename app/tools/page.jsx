@@ -198,6 +198,7 @@ export default function ToolsPage() {
 
     // Photo Import State
     const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
+    const [photoProgress, setPhotoProgress] = useState({ done: 0, total: 0 }); // track multi-image progress
     const [photoDateHint, setPhotoDateHint] = useState(() => new Date().toISOString().slice(0, 10));
     const [translateNotes, setTranslateNotes] = useState(true);
 
@@ -702,24 +703,25 @@ export default function ToolsPage() {
     }
 
     async function handlePhotoUpload(e) {
-        const file = e.target.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-        // Check file type - also accept files with empty type but image extension (iOS HEIC)
-        const isImageType = file.type.startsWith('image/');
-        const hasImageExtension = /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name);
-        if (!isImageType && !hasImageExtension) {
-            alert('Please select an image file');
-            return;
-        }
-
-        // Check file size (max 20MB for HEIC which can be large)
-        if (file.size > 20 * 1024 * 1024) {
-            alert('File too large. Maximum size is 20MB.');
-            return;
+        // Validate all files first
+        for (const file of files) {
+            const isImageType = file.type.startsWith('image/');
+            const hasImageExtension = /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(file.name);
+            if (!isImageType && !hasImageExtension) {
+                alert(`"${file.name}" is not an image file. Please select only image files.`);
+                return;
+            }
+            if (file.size > 20 * 1024 * 1024) {
+                alert(`"${file.name}" is too large. Maximum size is 20MB per image.`);
+                return;
+            }
         }
 
         setPhotoAnalyzing(true);
+        setPhotoProgress({ done: 0, total: files.length });
         setImportErrors([]);
 
         const { data: { session } } = await supabase.auth.getSession();
@@ -735,7 +737,6 @@ export default function ToolsPage() {
             return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = () => {
-                    // Calculate scaled dimensions (max 2000px on longest side to reduce size)
                     const maxDim = 2000;
                     let width = img.width;
                     let height = img.height;
@@ -755,65 +756,92 @@ export default function ToolsPage() {
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // Convert to JPEG base64 (0.85 quality for good balance)
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
                     const base64 = dataUrl.split(',')[1];
                     resolve(base64);
                 };
-                img.onerror = () => reject(new Error('Failed to load image'));
-
-                // Create object URL from file
+                img.onerror = () => reject(new Error(`Failed to load image: ${file.name}`));
                 img.src = URL.createObjectURL(file);
             });
         };
 
-        try {
-            const base64 = await convertToJpeg(file);
+        const timezoneValue = importTimezone === 'local'
+            ? (() => {
+                const offset = new Date().getTimezoneOffset();
+                const sign = offset <= 0 ? '+' : '-';
+                const hrs = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+                const mins = String(Math.abs(offset) % 60).padStart(2, '0');
+                return `${sign}${hrs}:${mins}`;
+            })()
+            : importTimezone;
 
-            // Call vision API (always send as JPEG since we converted)
-            const res = await fetch('/api/vision/analyze', {
-                method: 'POST',
-                headers: {
-                    'content-type': 'application/json',
-                    'authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    image: base64,
-                    media_type: 'image/jpeg',
-                    date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
-                    timezone: importTimezone === 'local'
-                        ? (() => {
-                            // Get browser's timezone offset and format as ±HH:MM
-                            const offset = new Date().getTimezoneOffset();
-                            const sign = offset <= 0 ? '+' : '-';
-                            const hrs = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
-                            const mins = String(Math.abs(offset) % 60).padStart(2, '0');
-                            return `${sign}${hrs}:${mins}`;
-                        })()
-                        : importTimezone,
-                    translate_notes: translateNotes,
-                    translate_language: translateNotes ? language : undefined
-                })
+        try {
+            // Process all images in parallel (Gemini Flash supports 1000 RPM)
+            let doneCount = 0;
+            const analyzeOne = async (file, i) => {
+                const base64 = await convertToJpeg(file);
+
+                const res = await fetch('/api/vision/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'content-type': 'application/json',
+                        'authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        image: base64,
+                        media_type: 'image/jpeg',
+                        date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
+                        timezone: timezoneValue,
+                        translate_notes: translateNotes,
+                        translate_language: translateNotes ? language : undefined
+                    })
+                });
+
+                doneCount++;
+                setPhotoProgress({ done: doneCount, total: files.length });
+
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    throw new Error(err.error || 'Analysis failed');
+                }
+
+                const { events } = await res.json();
+                return { events: events || [], file, index: i };
+            };
+
+            const results = await Promise.allSettled(
+                files.map((file, i) => analyzeOne(file, i))
+            );
+
+            let allEvents = [];
+            const errors = [];
+
+            results.forEach((result, i) => {
+                if (result.status === 'rejected') {
+                    errors.push({ row: 0, message: `Image ${i + 1} ("${files[i].name}"): ${result.reason?.message || 'Unknown error'}` });
+                } else if (result.value.events.length === 0) {
+                    errors.push({ row: 0, message: `Image ${i + 1} ("${files[i].name}"): No events found` });
+                } else {
+                    allEvents = allEvents.concat(result.value.events);
+                }
             });
 
-            if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                throw new Error(err.error || t('tools.analysis_failed'));
+            if (errors.length > 0) {
+                setImportErrors(errors);
             }
 
-            const { events } = await res.json();
-
-            if (!events || events.length === 0) {
-                setImportErrors([{ row: 0, message: 'No events could be extracted from the photo. Try a clearer image or use CSV import.' }]);
+            if (allEvents.length === 0) {
+                if (errors.length === 0) {
+                    setImportErrors([{ row: 0, message: 'No events could be extracted from the photos. Try clearer images or use CSV import.' }]);
+                }
                 setPhotoAnalyzing(false);
                 return;
             }
 
             // Check for duplicates against existing events
-            // Fetch existing events for this baby within a reasonable time range
-            const eventDates = events.map(e => new Date(e.occurred_at));
-            const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000); // 1 hour before earliest
-            const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000); // 1 hour after latest
+            const eventDates = allEvents.map(e => new Date(e.occurred_at));
+            const minDate = new Date(Math.min(...eventDates) - 60 * 60 * 1000);
+            const maxDate = new Date(Math.max(...eventDates) + 60 * 60 * 1000);
 
             const { data: existingEvents } = await supabase
                 .from('events')
@@ -822,9 +850,7 @@ export default function ToolsPage() {
                 .gte('occurred_at', minDate.toISOString())
                 .lte('occurred_at', maxDate.toISOString());
 
-            // Format events for preview and check for duplicates
-            const preview = events.map((e, idx) => {
-                // Check if a similar event exists within 30 minutes
+            const preview = allEvents.map((e, idx) => {
                 const eventTime = new Date(e.occurred_at).getTime();
                 const isDuplicate = existingEvents?.some(existing => {
                     if (existing.event_type !== e.event_type) return false;
@@ -843,7 +869,6 @@ export default function ToolsPage() {
             });
 
             setImportPreview(preview);
-            // Select all non-duplicates by default
             const nonDuplicateIndices = preview
                 .map((item, i) => item._isDuplicate ? null : i)
                 .filter(i => i !== null);
@@ -1299,10 +1324,12 @@ export default function ToolsPage() {
                                                 e.preventDefault();
                                                 e.currentTarget.style.borderColor = '#81c784';
                                                 e.currentTarget.style.background = '#fff';
-                                                const file = e.dataTransfer.files?.[0];
-                                                if (file && file.type.startsWith('image/')) {
+                                                const droppedFiles = Array.from(e.dataTransfer.files || []).filter(
+                                                    f => f.type.startsWith('image/') || /\.(jpe?g|png|gif|webp|heic|heif|bmp)$/i.test(f.name)
+                                                );
+                                                if (droppedFiles.length > 0) {
                                                     const dataTransfer = new DataTransfer();
-                                                    dataTransfer.items.add(file);
+                                                    droppedFiles.forEach(f => dataTransfer.items.add(f));
                                                     photoInputRef.current.files = dataTransfer.files;
                                                     handlePhotoUpload({ target: { files: dataTransfer.files } });
                                                 }
@@ -1312,6 +1339,7 @@ export default function ToolsPage() {
                                                 ref={photoInputRef}
                                                 type="file"
                                                 accept="image/*"
+                                                multiple
                                                 onChange={handlePhotoUpload}
                                                 disabled={photoAnalyzing}
                                                 style={{ display: 'none' }}
@@ -1330,16 +1358,20 @@ export default function ToolsPage() {
                                                         animation: 'spin 1s linear infinite'
                                                     }} />
                                                     <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
-                                                    <div style={{ fontWeight: 600 }}>{t('tools.analyzing')}</div>
+                                                    <div style={{ fontWeight: 600 }}>
+                                                        {photoProgress.total > 1
+                                                            ? `${t('tools.analyzing')} (${photoProgress.done}/${photoProgress.total})`
+                                                            : t('tools.analyzing')}
+                                                    </div>
                                                 </div>
                                             ) : (
                                                 <>
                                                     <div style={{ fontSize: 36, marginBottom: 8, opacity: 0.8 }}>📸</div>
                                                     <div style={{ fontWeight: 600, color: '#2e7d32', marginBottom: 4 }}>
-                                                        {t('tools.drop_or_click') || 'Drop image or click to upload'}
+                                                        {t('tools.drop_or_click') || 'Drop images or click to upload'}
                                                     </div>
                                                     <div style={{ fontSize: 12, color: '#888' }}>
-                                                        JPG, PNG, HEIC
+                                                        JPG, PNG, HEIC — multiple files supported
                                                     </div>
                                                 </>
                                             )}
