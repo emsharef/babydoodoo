@@ -776,10 +776,23 @@ export default function ToolsPage() {
             : importTimezone;
 
         try {
-            // Process all images in parallel (Gemini Flash supports 1000 RPM)
+            // Convert all images to base64 first (CPU-bound canvas work),
+            // then fire all API calls in parallel so network requests overlap.
+            const base64Images = await Promise.all(
+                files.map(file => convertToJpeg(file).catch(err => ({ error: err.message })))
+            );
+
+            const requestBody = {
+                media_type: 'image/jpeg',
+                date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
+                timezone: timezoneValue,
+                translate_notes: translateNotes,
+                translate_language: translateNotes ? language : undefined
+            };
+
             let doneCount = 0;
-            const analyzeOne = async (file, i) => {
-                const base64 = await convertToJpeg(file);
+            const analyzeOne = async (base64, i) => {
+                if (base64.error) throw new Error(base64.error);
 
                 const res = await fetch('/api/vision/analyze', {
                     method: 'POST',
@@ -787,14 +800,7 @@ export default function ToolsPage() {
                         'content-type': 'application/json',
                         'authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({
-                        image: base64,
-                        media_type: 'image/jpeg',
-                        date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
-                        timezone: timezoneValue,
-                        translate_notes: translateNotes,
-                        translate_language: translateNotes ? language : undefined
-                    })
+                    body: JSON.stringify({ ...requestBody, image: base64 })
                 });
 
                 doneCount++;
@@ -806,11 +812,11 @@ export default function ToolsPage() {
                 }
 
                 const { events } = await res.json();
-                return { events: events || [], file, index: i };
+                return { events: events || [], index: i };
             };
 
             const results = await Promise.allSettled(
-                files.map((file, i) => analyzeOne(file, i))
+                base64Images.map((b64, i) => analyzeOne(b64, i))
             );
 
             let allEvents = [];

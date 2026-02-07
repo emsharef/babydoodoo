@@ -141,7 +141,7 @@ export async function POST(request) {
 
   // Rate limit check (restrictive for vision API calls)
   const __key = keyFor({ route: '/api/vision/analyze', method: 'POST', userId: user.id, ip: __ip });
-  const __rl = limit({ key: __key, windowMs: Number(process.env.RATE_WINDOW_MS) || 60000, max: 5 });
+  const __rl = limit({ key: __key, windowMs: Number(process.env.RATE_WINDOW_MS) || 60000, max: 20 });
   if (!__rl.ok) {
     const __ms = Date.now() - __start;
     logRequest({ id: __id, route: '/api/vision/analyze', method: 'POST', status: 429, ms: __ms, userId: user.id, ip: __ip });
