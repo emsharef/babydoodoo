@@ -59,6 +59,10 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
         fontWeight: 700,
         letterSpacing: '0.3px',
         textShadow: '0 1px 0 rgba(255,255,255,0.5)',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
+        minWidth: 0,
       }}>{label}</span>
     </button>
   );

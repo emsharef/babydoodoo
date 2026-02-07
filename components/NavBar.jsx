@@ -25,7 +25,7 @@ export default function NavBar() {
     // Adjust icon sizes on narrow screens without changing appearance via CSS
     function update() {
       try {
-        setIsNarrow((typeof window !== 'undefined') ? window.innerWidth <= 480 : false);
+        setIsNarrow((typeof window !== 'undefined') ? window.innerWidth <= 600 : false);
       } catch { }
     }
     update();
@@ -65,8 +65,8 @@ export default function NavBar() {
   return (
     <nav style={{
       display: 'flex',
-      gap: 8,
-      padding: '12px 12px',
+      gap: isNarrow ? 4 : 8,
+      padding: isNarrow ? '8px 8px' : '12px 12px',
       background: 'rgba(255, 255, 255, 0.7)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
@@ -75,8 +75,10 @@ export default function NavBar() {
       alignItems: 'center',
       boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04)',
       maxWidth: '100%',
+      boxSizing: 'border-box',
+      overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', gap: isNarrow ? 6 : 8, alignItems: 'center', flexWrap: 'nowrap', overflowX: 'auto', paddingTop: 2, paddingBottom: 2 }}>
+      <div style={{ display: 'flex', gap: isNarrow ? 4 : 8, alignItems: 'center', flexWrap: 'nowrap', minWidth: 0, flexShrink: 1 }}>
         <IconLink href="/" Icon={IconNotebook} isNarrow={isNarrow} />
         <IconLink href="/analytics" Icon={IconChartBar} isNarrow={isNarrow} />
         {role !== 'viewer' && (
@@ -87,7 +89,7 @@ export default function NavBar() {
           </>
         )}
       </div>
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: isNarrow ? 4 : 8, alignItems: 'center', flexShrink: 1, minWidth: 0 }}>
         <select
           id="babySelectTop"
           value={selectedBabyId}
@@ -98,7 +100,7 @@ export default function NavBar() {
             border: '1px solid rgba(0, 0, 0, 0.08)',
             background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
             minWidth: 0,
-            maxWidth: isNarrow ? 90 : 130,
+            maxWidth: isNarrow ? 80 : 130,
             fontSize: isNarrow ? 13 : 14,
             fontWeight: 500,
             color: '#334155',
@@ -111,13 +113,13 @@ export default function NavBar() {
           {babies.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
-      <div style={{ position: 'relative', marginLeft: 8 }} ref={menuRef}>
+      <div style={{ position: 'relative', marginLeft: isNarrow ? 4 : 8, flexShrink: 0 }} ref={menuRef}>
         <button
           type="button"
           onClick={() => setMenuOpen(prev => !prev)}
           style={{
-            width: isNarrow ? 36 : 42,
-            height: isNarrow ? 36 : 42,
+            width: isNarrow ? 32 : 42,
+            height: isNarrow ? 32 : 42,
             borderRadius: '50%',
             border: '2px solid rgba(139, 92, 246, 0.2)',
             background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
@@ -130,7 +132,7 @@ export default function NavBar() {
           }}
           title="Account"
         >
-          <IconUserCircle size={isNarrow ? 20 : 24} stroke={1.8} color="#7c3aed" />
+          <IconUserCircle size={isNarrow ? 18 : 24} stroke={1.8} color="#7c3aed" />
         </button>
         {menuOpen && (
           <div
@@ -234,7 +236,7 @@ function IconLink({ href, Icon, isNarrow }) {
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: isNarrow ? '6px' : '8px',
+        padding: isNarrow ? '5px' : '8px',
         borderRadius: 10,
         border: isHovered ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(0, 0, 0, 0.06)',
         background: isHovered
@@ -242,8 +244,9 @@ function IconLink({ href, Icon, isNarrow }) {
           : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
         textDecoration: 'none',
         color: isHovered ? '#7c3aed' : '#475569',
-        width: isNarrow ? 32 : 38,
-        height: isNarrow ? 32 : 38,
+        width: isNarrow ? 30 : 38,
+        height: isNarrow ? 30 : 38,
+        flexShrink: 0,
         fontWeight: 600,
         fontFamily: 'Inter, system-ui, sans-serif',
         boxShadow: isHovered
