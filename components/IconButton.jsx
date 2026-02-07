@@ -18,7 +18,7 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
       : `linear-gradient(145deg, ${lighterColor} 0%, ${color} 100%)`,
     border: `2px solid ${darkerBorder}`,
     cursor: 'pointer',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 600,
     boxShadow: isPressed
       ? `inset 0 2px 4px rgba(0,0,0,0.1)`
@@ -49,8 +49,8 @@ export default function IconButton({ emoji, label, color='#fff3b0', border='#f0d
       onTouchEnd={() => setIsPressed(false)}
     >
       <span style={{
-        fontSize: 24,
-        marginRight: 10,
+        fontSize: 20,
+        marginRight: 8,
         filter: isHovered ? 'drop-shadow(0 2px 4px rgba(0,0,0,0.2))' : 'none',
         transform: isHovered ? 'scale(1.1)' : 'scale(1)',
         transition: 'all 0.15s ease-out',
