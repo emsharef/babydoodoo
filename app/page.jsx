@@ -253,6 +253,8 @@ export default function LogPage() {
   // Filter state
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState(null);
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
 
   // Bottom sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -294,15 +296,17 @@ export default function LogPage() {
     }
     // Reset filter when baby changes
     setFilterType(null);
+    setFilterDateFrom('');
+    setFilterDateTo('');
     setShowFilters(false);
   }, [selectedBabyId]);
 
-  // Re-fetch events when filter type changes
+  // Re-fetch events when filters change
   useEffect(() => {
     if (selectedBaby) {
-      fetchEvents(selectedBaby.id, null, filterType);
+      fetchEvents(selectedBaby.id, null, filterType, filterDateFrom, filterDateTo);
     }
-  }, [filterType]);
+  }, [filterType, filterDateFrom, filterDateTo]);
 
   async function fetchButtonConfig(babyId) {
     const { data, error } = await supabase.from('babies').select('button_config').eq('id', babyId).single();
@@ -318,7 +322,7 @@ export default function LogPage() {
     } catch { }
   }
 
-  async function fetchEvents(babyId, cursor = null, typeFilter = null) {
+  async function fetchEvents(babyId, cursor = null, typeFilter = null, dateFrom = '', dateTo = '') {
     const PAGE_SIZE = 20;
     let query = supabase.from('events')
       .select('*')
@@ -328,6 +332,17 @@ export default function LogPage() {
 
     if (typeFilter) {
       query = query.eq('event_type', typeFilter);
+    }
+
+    if (dateFrom) {
+      query = query.gte('occurred_at', new Date(dateFrom).toISOString());
+    }
+
+    if (dateTo) {
+      // End of the selected day
+      const endOfDay = new Date(dateTo);
+      endOfDay.setHours(23, 59, 59, 999);
+      query = query.lte('occurred_at', endOfDay.toISOString());
     }
 
     if (cursor) {
@@ -354,7 +369,7 @@ export default function LogPage() {
     if (!oldest) return;
 
     setLoadingMore(true);
-    await fetchEvents(selectedBaby.id, oldest, filterType);
+    await fetchEvents(selectedBaby.id, oldest, filterType, filterDateFrom, filterDateTo);
     setLoadingMore(false);
   }
 
@@ -624,8 +639,8 @@ export default function LogPage() {
               style={{
                 padding: '8px 12px',
                 borderRadius: 10,
-                border: showFilters || filterType ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
-                background: showFilters || filterType
+                border: showFilters || filterType || filterDateFrom || filterDateTo ? '1px solid rgba(139, 92, 246, 0.3)' : '1px solid rgba(0, 0, 0, 0.08)',
+                background: showFilters || filterType || filterDateFrom || filterDateTo
                   ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
                   : 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
                 cursor: 'pointer',
@@ -637,8 +652,12 @@ export default function LogPage() {
               }}
               title={t('log.filter') || 'Filter'}
             >
-              <IconFilter size={18} stroke={1.5} color={filterType ? '#7c3aed' : '#64748b'} />
-              {filterType && <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>1</span>}
+              <IconFilter size={18} stroke={1.5} color={filterType || filterDateFrom || filterDateTo ? '#7c3aed' : '#64748b'} />
+              {(filterType || filterDateFrom || filterDateTo) && (
+                <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>
+                  {(filterType ? 1 : 0) + (filterDateFrom || filterDateTo ? 1 : 0)}
+                </span>
+              )}
             </button>
           </div>
           {showFilters && (
@@ -691,6 +710,46 @@ export default function LogPage() {
                   {t(`event.${type.toLowerCase()}`) || type}
                 </button>
               ))}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                width: '100%',
+                marginTop: 4,
+                flexWrap: 'wrap',
+              }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#475569' }}>{t('log.date_range')}:</span>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                  style={{
+                    padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)',
+                    fontSize: 13, background: '#fff', color: '#334155',
+                  }}
+                />
+                <span style={{ fontSize: 13, color: '#94a3b8' }}>–</span>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                  style={{
+                    padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)',
+                    fontSize: 13, background: '#fff', color: '#334155',
+                  }}
+                />
+                {(filterDateFrom || filterDateTo) && (
+                  <button
+                    onClick={() => { setFilterDateFrom(''); setFilterDateTo(''); }}
+                    style={{
+                      padding: '4px 10px', borderRadius: 8, border: '1px solid rgba(0,0,0,0.1)',
+                      background: '#fff', fontSize: 12, cursor: 'pointer', color: '#64748b', fontWeight: 500,
+                    }}
+                  >
+                    {t('log.clear_dates')}
+                  </button>
+                )}
+              </div>
             </div>
           )}
           {visibleEvents.length === 0 ? <p style={{ color: '#64748b', textAlign: 'center', padding: '20px 0' }}>{t('log.no_events')}</p> : (
