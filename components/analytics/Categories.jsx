@@ -1,10 +1,12 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import ChartCard from './ChartCard';
 import KpiCard from './KpiCard';
 import EmptyState from './EmptyState';
 import EChart from './charts/EChart';
 import { useLanguage } from '@/components/LanguageContext';
+import { EVENT_DEFS } from '@/lib/events';
 import {
   diaperStackedOption,
   lineOption,
@@ -13,9 +15,11 @@ import {
   horizontalBarOption,
   heatmapOption,
   scatterOption,
+  eventCalendarOption,
 } from './chartOptions';
 
 export const CATEGORY_COMPONENTS = {
+  calendar: CalendarCategory,
   diapering: DiaperingCategory,
   feeding: FeedingCategory,
   sleep: SleepCategory,
@@ -32,6 +36,75 @@ const kpiRowStyle = {
   gap: 12,
   gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
 };
+
+const eventDefMap = new Map(EVENT_DEFS.map(d => [d.type, d]));
+
+function CalendarCategory({ data }) {
+  const { t } = useLanguage();
+  const { points, days, types } = data;
+  const typesArray = types instanceof Set ? Array.from(types) : [];
+  const [hidden, setHidden] = useState(new Set());
+
+  const toggle = type => {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(type)) next.delete(type);
+      else next.add(type);
+      return next;
+    });
+  };
+
+  const filteredPoints = useMemo(
+    () => hidden.size === 0 ? points : points.filter(pt => !hidden.has(pt.eventType)),
+    [points, hidden],
+  );
+  const visibleTypes = useMemo(
+    () => new Set(filteredPoints.map(pt => pt.eventType)),
+    [filteredPoints],
+  );
+
+  if (!points.length) {
+    return <EmptyState message={t('ana.cal_empty')} />;
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 18 }}>
+      <div style={kpiRowStyle}>
+        <KpiCard title={t('ana.cal_total')} value={filteredPoints.length} subtitle={`${days.length} ${t('analytics.day_window')}`} />
+        <KpiCard title={t('ana.cal_types')} value={visibleTypes.size} subtitle={t('ana.cal_unique')} />
+      </div>
+      <ChartCard title={t('ana.cal_title')} description={t('ana.cal_desc')} height={420}>
+        <EChart option={eventCalendarOption({ points: filteredPoints, days })} style={{ height: 420 }} />
+      </ChartCard>
+      {typesArray.length > 0 && (
+        <div style={{
+          display: 'flex', flexWrap: 'wrap', gap: 8, padding: '8px 4px',
+        }}>
+          {typesArray.map(type => {
+            const def = eventDefMap.get(type);
+            if (!def) return null;
+            const isHidden = hidden.has(type);
+            return (
+              <button key={type} type="button" onClick={() => toggle(type)} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 10px', borderRadius: 8,
+                background: isHidden ? '#f0f0f3' : def.bg,
+                border: `1px solid ${isHidden ? '#d0d0d6' : def.bd}`,
+                fontSize: 13, fontWeight: 500,
+                cursor: 'pointer',
+                opacity: isHidden ? 0.45 : 1,
+                textDecoration: isHidden ? 'line-through' : 'none',
+                transition: 'all 0.15s ease',
+              }}>
+                {def.emoji} {def.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function DiaperingCategory({ data, totals }) {
   const { t } = useLanguage();

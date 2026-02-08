@@ -10,7 +10,7 @@ import { CATEGORY_COMPONENTS } from '@/components/analytics/Categories';
 import { useAnalyticsData } from '@/lib/hooks/useAnalyticsData';
 
 const CATEGORY_KEYS = [
-  'diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'
+  'calendar', 'diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'
 ];
 
 export default function AnalyticsPage() {
@@ -378,9 +378,10 @@ function LoadingBlock() {
 }
 
 function computeCategoryAvailability(analytics = {}) {
-  const keys = ['diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'];
+  const keys = ['calendar', 'diapering', 'feeding', 'sleep', 'mood', 'health', 'pregnancy', 'play', 'milestones', 'notes'];
   if (!analytics) return Object.fromEntries(keys.map(k => [k, false]));
   return {
+    calendar: Boolean((analytics.calendar?.points?.length || 0) > 0),
     diapering: Boolean(analytics.diapering?.total),
     feeding: Boolean((analytics.feeding?.totalFeeds || 0) > 0 || (analytics.feeding?.totalVolume || 0) > 0),
     sleep: Boolean((analytics.sleep?.sessions?.length || 0) > 0 || (analytics.sleep?.totalMinutes || 0) > 0),
