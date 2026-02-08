@@ -297,6 +297,13 @@ export default function LogPage() {
     setShowFilters(false);
   }, [selectedBabyId]);
 
+  // Re-fetch events when filter type changes
+  useEffect(() => {
+    if (selectedBaby) {
+      fetchEvents(selectedBaby.id, null, filterType);
+    }
+  }, [filterType]);
+
   async function fetchButtonConfig(babyId) {
     const { data, error } = await supabase.from('babies').select('button_config').eq('id', babyId).single();
     if (error) { console.error('fetchButtonConfig error', error); setConfigLoaded(true); return; }
@@ -311,13 +318,17 @@ export default function LogPage() {
     } catch { }
   }
 
-  async function fetchEvents(babyId, cursor = null) {
+  async function fetchEvents(babyId, cursor = null, typeFilter = null) {
     const PAGE_SIZE = 20;
     let query = supabase.from('events')
       .select('*')
       .eq('baby_id', babyId)
       .order('occurred_at', { ascending: false })
       .limit(PAGE_SIZE + 1);
+
+    if (typeFilter) {
+      query = query.eq('event_type', typeFilter);
+    }
 
     if (cursor) {
       query = query.lt('occurred_at', cursor);
@@ -343,7 +354,7 @@ export default function LogPage() {
     if (!oldest) return;
 
     setLoadingMore(true);
-    await fetchEvents(selectedBaby.id, oldest);
+    await fetchEvents(selectedBaby.id, oldest, filterType);
     setLoadingMore(false);
   }
 
@@ -567,8 +578,6 @@ export default function LogPage() {
   const visibleEvents = events.filter(ev => {
     // Hide MyMood from viewers
     if (role === 'viewer' && ev.event_type === 'MyMood') return false;
-    // Apply type filter if set
-    if (filterType && ev.event_type !== filterType) return false;
     return true;
   });
 
