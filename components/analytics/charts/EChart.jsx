@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import * as echarts from 'echarts/core';
 import { BarChart, LineChart, PieChart, HeatmapChart, ScatterChart } from 'echarts/charts';
-import { GridComponent, TooltipComponent, LegendComponent, VisualMapComponent, DataZoomComponent, TitleComponent } from 'echarts/components';
+import { GridComponent, TooltipComponent, LegendComponent, VisualMapComponent, DataZoomComponent, TitleComponent, MarkLineComponent } from 'echarts/components';
 import { CanvasRenderer } from 'echarts/renderers';
 
 echarts.use([
@@ -18,6 +18,7 @@ echarts.use([
   VisualMapComponent,
   DataZoomComponent,
   TitleComponent,
+  MarkLineComponent,
   CanvasRenderer,
 ]);
 

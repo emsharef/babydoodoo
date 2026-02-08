@@ -280,9 +280,10 @@ export function eventCalendarOption({ points, days }) {
     grid: { left: 56, right: 24, top: 12, bottom: 16, containLabel: true },
     xAxis: {
       type: 'value',
-      min: -0.6,
-      max: days.length - 0.4,
+      min: -0.7,
+      max: days.length - 0.3,
       interval: 1,
+      axisLine: { show: false },
       axisLabel: {
         showMinLabel: false,
         showMaxLabel: false,
@@ -295,7 +296,8 @@ export function eventCalendarOption({ points, days }) {
         fontSize: 11,
       },
       axisTick: { show: false },
-      splitLine: { show: true, lineStyle: { type: 'dashed', color: '#eee' } },
+      // no split lines on the main axis; we draw them between days via markLine-like approach below
+      splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
@@ -306,10 +308,26 @@ export function eventCalendarOption({ points, days }) {
       axisLabel: {
         formatter: val => `${String(Math.round(val)).padStart(2, '0')}:00`,
       },
+      splitLine: { lineStyle: { type: 'dashed', color: '#eee' } },
     },
     dataZoom: [
       { type: 'inside', xAxisIndex: 0 },
     ],
-    series,
+    series: [
+      // Invisible series to draw vertical dividers between days
+      {
+        type: 'scatter',
+        data: [],
+        silent: true,
+        markLine: {
+          silent: true,
+          symbol: 'none',
+          lineStyle: { type: 'dashed', color: '#e8e8ee', width: 1 },
+          label: { show: false },
+          data: Array.from({ length: days.length - 1 }, (_, i) => ({ xAxis: i + 0.5 })),
+        },
+      },
+      ...series,
+    ],
   };
 }
