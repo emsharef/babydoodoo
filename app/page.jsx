@@ -352,11 +352,8 @@ export default function LogPage() {
     return applyButtonConfig(BASE_EVENT_DEFS, buttonConfig);
   }, [buttonConfig, configLoaded]);
 
-  // Get unique event types from loaded events for filter chips
-  const eventTypesInList = useMemo(() => {
-    const types = new Set(events.map(ev => ev.event_type));
-    return Array.from(types);
-  }, [events]);
+  // All event types available for filtering
+  const eventTypesInList = useMemo(() => EVENT_DEFS.map(def => def.type), [EVENT_DEFS]);
 
   // Infinite scroll observer
   useEffect(() => {
