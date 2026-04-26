@@ -201,6 +201,7 @@ export default function ToolsPage() {
     const [photoAnalyzing, setPhotoAnalyzing] = useState(false);
     const [photoProgress, setPhotoProgress] = useState({ done: 0, total: 0 }); // track multi-image progress
     const [photoDateHint, setPhotoDateHint] = useState(() => new Date().toISOString().slice(0, 10));
+    const [photoDateFormat, setPhotoDateFormat] = useState('auto'); // 'auto' | 'mdy' | 'dmy'
     const [translateNotes, setTranslateNotes] = useState(true);
 
     // Common timezone options
@@ -788,6 +789,7 @@ export default function ToolsPage() {
             const requestBody = {
                 media_type: 'image/jpeg',
                 date_hint: photoDateHint || new Date().toISOString().slice(0, 10),
+                date_format: photoDateFormat,
                 timezone: timezoneValue,
                 translate_notes: translateNotes,
                 translate_language: translateNotes ? language : undefined
@@ -1556,6 +1558,32 @@ export default function ToolsPage() {
                                             />
                                             <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6 }}>
                                                 {t('tools.date_hint_desc')}
+                                            </p>
+                                        </div>
+
+                                        <div style={{ marginTop: 16 }}>
+                                            <label style={{ display: 'block', marginBottom: 6, fontSize: 13, fontWeight: 500 }}>
+                                                {t('tools.date_format') || 'Date format'}
+                                            </label>
+                                            <select
+                                                value={photoDateFormat}
+                                                onChange={(e) => setPhotoDateFormat(e.target.value)}
+                                                style={{
+                                                    padding: '10px 12px',
+                                                    borderRadius: 8,
+                                                    border: '1px solid #ced4da',
+                                                    fontSize: 14,
+                                                    width: '100%',
+                                                    maxWidth: 300,
+                                                    background: '#fff'
+                                                }}
+                                            >
+                                                <option value="auto">{t('tools.date_format_auto') || 'Auto-detect'}</option>
+                                                <option value="mdy">{t('tools.date_format_mdy') || 'MM/DD (US)'}</option>
+                                                <option value="dmy">{t('tools.date_format_dmy') || 'DD/MM (European)'}</option>
+                                            </select>
+                                            <p style={{ fontSize: 12, color: '#6c757d', marginTop: 6 }}>
+                                                {t('tools.date_format_desc') || 'How to interpret ambiguous numeric dates like "11/4" on the log.'}
                                             </p>
                                         </div>
 

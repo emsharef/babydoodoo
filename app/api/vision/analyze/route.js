@@ -13,6 +13,7 @@ const GEMINI_MODEL = 'gemini-3-flash-preview';
 const BodySchema = z.object({
   image: z.string().min(100), // base64 image data
   date_hint: z.string().optional(), // YYYY-MM-DD format
+  date_format: z.enum(['auto', 'mdy', 'dmy']).optional(), // ambiguity hint for slash-dates
   media_type: z.string().optional(), // e.g., 'image/jpeg'
   timezone: z.string().optional(), // e.g., 'local', 'UTC', '-05:00'
   translate_notes: z.boolean().optional(), // translate notes to user's language
@@ -45,6 +46,15 @@ DATE HANDLING (IMPORTANT):
 - Only use the fallback date provided below if NO date is visible in the image
 - Always combine visible times (e.g., "8:30") with the correct date
 - DO NOT add "Z" or any timezone suffix - just return the local time as written on the paper
+
+AMBIGUOUS NUMERIC DATES:
+- Numeric dates like "11/4" or "4/11" are ambiguous: the same string can mean MM/DD (US) or DD/MM (European).
+- A DATE_FORMAT directive will be provided below. Honor it strictly:
+  - If DATE_FORMAT = "mdy": interpret slash-dates as Month/Day (US). "11/4" = November 4.
+  - If DATE_FORMAT = "dmy": interpret slash-dates as Day/Month (European). "11/4" = April 11.
+  - If DATE_FORMAT = "auto": pick the interpretation that is NOT in the future relative to TODAY and is within the last ~12 months. If both interpretations are plausible, prefer MM/DD. If one of the numbers is > 12 (e.g., "25/3"), the format is unambiguous - use it.
+- Unambiguous formats (ISO "2026-04-11", written months "Apr 11", "11 April") are not affected by DATE_FORMAT.
+- If the year is not visible, infer it from TODAY: pick the most recent year for which the date is not in the future.
 
 Metadata structures by type (use EXACTLY these field values):
 - YumYum: { yum: { kind: "breast"|"bottle"|"formula"|"solid", quantity: 120, side: "left"|"right"|"both" }, notes: "optional notes" }
@@ -151,8 +161,10 @@ export async function POST(request) {
     });
   }
 
-  const { image, date_hint, media_type, timezone, translate_notes, translate_language } = parsed.data;
+  const { image, date_hint, date_format, media_type, timezone, translate_notes, translate_language } = parsed.data;
   const dateForPrompt = date_hint || new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  const dateFormatDirective = date_format || 'auto';
 
   // Detect media type from base64 if not provided
   let detectedMediaType = media_type || 'image/jpeg';
@@ -169,7 +181,9 @@ export async function POST(request) {
     const targetLang = langNames[translate_language] || 'English';
     promptText += `\n\nTRANSLATION: If any notes or text on the log are written in a language other than ${targetLang}, translate them to ${targetLang} in the "notes" field.`;
   }
-  promptText += `\n\nFALLBACK DATE (only use if NO date is visible in the image): ${dateForPrompt}`;
+  promptText += `\n\nTODAY: ${today}`;
+  promptText += `\nDATE_FORMAT: ${dateFormatDirective}`;
+  promptText += `\nFALLBACK DATE (only use if NO date is visible in the image): ${dateForPrompt}`;
 
   try {
     // Call Gemini Vision API
