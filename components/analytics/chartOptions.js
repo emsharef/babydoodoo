@@ -277,13 +277,15 @@ export function eventCalendarOption({ points, days }) {
         return html;
       },
     },
-    grid: { left: 56, right: 24, top: 12, bottom: 16, containLabel: true },
+    grid: { left: 52, right: 24, top: 12, bottom: 36, containLabel: false },
     xAxis: {
       type: 'value',
-      min: -0.7,
-      max: days.length - 0.3,
+      min: -0.5,
+      max: days.length - 0.5,
       interval: 1,
       axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { show: false },
       axisLabel: {
         showMinLabel: false,
         showMaxLabel: false,
@@ -295,9 +297,6 @@ export function eventCalendarOption({ points, days }) {
         rotate: labelRotate(days.length),
         fontSize: 11,
       },
-      axisTick: { show: false },
-      // no split lines on the main axis; we draw them between days via markLine-like approach below
-      splitLine: { show: false },
     },
     yAxis: {
       type: 'value',
@@ -305,6 +304,8 @@ export function eventCalendarOption({ points, days }) {
       max: 24,
       inverse: true,
       interval: 3,
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: {
         formatter: val => `${String(Math.round(val)).padStart(2, '0')}:00`,
       },
